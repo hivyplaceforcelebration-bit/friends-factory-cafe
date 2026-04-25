@@ -1,0 +1,301 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { ChevronRight, Check, Heart } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { FFCHeader, FFCFooter } from '@/components/ffc-layout';
+import { FFCBookingForm, FFCWhatsAppFloat } from '@/components/ffc-booking-form';
+import { SetupPackage, packages, formatPrice } from '@/lib/ffc-config';
+import FFCImageGallery from '@/components/ffc-image-gallery';
+
+interface PackageDetailPageProps {
+  package: SetupPackage;
+}
+
+export default function FFCPackageDetailPage({ package: pkg }: PackageDetailPageProps) {
+  // Find ALL other packages except current one
+  const relatedPackages = packages.filter(p => p.id !== pkg.id);
+
+  return (
+    <div className="min-h-screen bg-white">
+      <FFCHeader />
+      
+      {/* Breadcrumb - visible & accessible */}
+      <div className="bg-amber-50 py-3 md:py-4">
+        <div className="container mx-auto px-4">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm">
+            <Link href="/" className="text-gray-500 hover:text-amber-600 transition-colors">Home</Link>
+            <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-gray-400 flex-shrink-0" />
+            <Link href="/packages" className="text-gray-500 hover:text-amber-600 transition-colors">Packages</Link>
+            <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-gray-400 flex-shrink-0" />
+            <span className="text-amber-600 font-medium truncate">{pkg.name}</span>
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <section className="py-4 md:py-8 lg:py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-6 lg:gap-12">
+            {/* Left Column - Gallery */}
+            <div>
+              <FFCImageGallery images={pkg.images} name={pkg.name} />
+            </div>
+
+            {/* Right Column - Details */}
+            <div className="mt-4 lg:mt-0">
+              {/* Title & Tagline */}
+              <Badge className="mb-3 md:mb-4 bg-amber-100 text-amber-700 border-amber-200">
+                <Heart className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" /> Couples Only Experience
+              </Badge>
+              
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2 font-serif">
+                {pkg.name} {pkg.emoji}
+              </h1>
+              
+              <p className="text-gray-600 mb-3 md:mb-4 text-sm md:text-base">
+                Creating the perfect mood for <strong>Every Celebration & Love Story</strong> ✨
+              </p>
+
+              {/* Perfect For */}
+              <div className="mb-4 md:mb-6">
+                <p className="text-sm font-medium text-gray-700 mb-2">🎉 Perfect For</p>
+                <p className="text-gray-600 text-sm md:text-base">
+                  {pkg.perfectFor.join(' | ')}
+                </p>
+              </div>
+
+              {/* Tagline */}
+              <div className="bg-amber-50 rounded-lg p-3 md:p-4 mb-4 md:mb-6">
+                <p className="text-amber-800 italic text-sm md:text-base">
+                  💍 {pkg.name} — where every occasion turns into a forever memory under the stars ✨🌙
+                </p>
+              </div>
+
+              {/* Price */}
+              <div className="mb-4 md:mb-6">
+                <span className="text-2xl md:text-3xl font-bold text-amber-600">{formatPrice(pkg.price)}</span>
+              </div>
+
+              {/* Booking Form Inline */}
+              <div className="mb-6 md:mb-8">
+                <FFCBookingForm variant="sidebar" packageName={pkg.name} defaultPackageSlug={pkg.slug} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Package Description */}
+      <section className="py-8 md:py-12 bg-amber-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-6 md:mb-8 font-serif text-center">
+              ✨ What's Included
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+              {pkg.features.map((feature, index) => (
+                <div key={index} className="flex items-start gap-3 bg-white rounded-lg p-3 md:p-4">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-gray-700 text-sm md:text-base">{feature}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Lunch/Dinner Menu */}
+      <section className="py-8 md:py-12 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-2 font-serif text-center">
+              🍽️ Lunch / Dinner Menu
+            </h2>
+            <p className="text-gray-600 text-center mb-6 md:mb-8 text-sm md:text-base">
+              Curated Café-Style Delicacies Crafted for Romantic Dates & Private Celebrations
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                <h4 className="font-semibold text-amber-800 mb-1">🍹 Mojito Welcome Drink</h4>
+                <p className="text-gray-600 text-sm">A refreshing mojito sip to begin your romantic experience</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                <h4 className="font-semibold text-amber-800 mb-1">🧀 Cheese Fondue</h4>
+                <p className="text-gray-600 text-sm">Rich, velvety cheese fondue served with cheese balls, wedges, and nachos</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                <h4 className="font-semibold text-amber-800 mb-1">🌯 Paneer Tortilla</h4>
+                <p className="text-gray-600 text-sm">Soft tortilla filled with spicy paneer and chef&apos;s special seasoning</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                <h4 className="font-semibold text-amber-800 mb-1">🍟 Peri Peri Fries with Mac & Cheese</h4>
+                <p className="text-gray-600 text-sm">Creamy mac & cheese paired with peri-peri fries</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                <h4 className="font-semibold text-amber-800 mb-1">🍞 Tangy Loaf</h4>
+                <p className="text-gray-600 text-sm">Warm loaf served with cheesy garlic sauce</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                <h4 className="font-semibold text-amber-800 mb-1">🥤 Unlimited Cold Drink</h4>
+                <p className="text-gray-600 text-sm">Unlimited refreshing cold drinks throughout your celebration</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                <h4 className="font-semibold text-amber-800 mb-1">🍫 Dessert with Chocolate Bite</h4>
+                <p className="text-gray-600 text-sm">A sweet ending with rich chocolate indulgence</p>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+                <h4 className="font-semibold text-amber-800 mb-1">💧 Mineral Water</h4>
+                <p className="text-gray-600 text-sm">Pure, refreshing mineral water for your comfort</p>
+              </div>
+            </div>
+
+            {/* Cake & Champagne */}
+            <div className="mt-6 md:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`rounded-xl p-4 md:p-6 text-center ${pkg.cakeIncluded ? 'bg-gradient-to-br from-green-100 to-emerald-100 border-2 border-green-200' : 'bg-gradient-to-br from-amber-100 to-orange-100'}`}>
+                <h4 className={`font-bold text-lg md:text-xl mb-2 ${pkg.cakeIncluded ? 'text-green-800' : 'text-amber-800'}`}>🎂 Cake & Champagne</h4>
+                {pkg.cakeIncluded ? (
+                  <>
+                    <p className="text-green-700 text-sm md:text-base font-semibold">✅ <strong>Cake:</strong> Complimentary (FREE!)</p>
+                    <p className="text-gray-700 text-sm md:text-base mt-1"><strong>Champagne:</strong> ₹500/- (Non-Alcoholic Fruit Flavour)</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-amber-700 text-sm md:text-base"><strong>Cake:</strong> ₹350/- (Extra Cost)</p>
+                    <p className="text-gray-700 text-sm md:text-base mt-1"><strong>Champagne:</strong> ₹500/- (Non-Alcoholic Fruit Flavour)</p>
+                  </>
+                )}
+              </div>
+              <div className="bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl p-4 md:p-6 text-center">
+                <h4 className="font-bold text-lg md:text-xl text-amber-800 mb-2">⏰ 3 Mesmerizing Hours</h4>
+                <p className="text-gray-700 text-sm md:text-base">Three magical hours designed to create unforgettable memories</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* What You Will Get - Decoration */}
+      <section className="py-8 md:py-12 bg-amber-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-6 md:mb-8 font-serif text-center">
+              🏕️ Romantic Tent Decoration
+            </h2>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+              <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                <span className="text-3xl md:text-4xl mb-2 block">⛺</span>
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Trending Tent Setup</h4>
+                <p className="text-gray-600 text-xs md:text-sm mt-1">Stylish tent for romantic evenings</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                <span className="text-3xl md:text-4xl mb-2 block">🌸</span>
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Curtains, Flowers & Lights</h4>
+                <p className="text-gray-600 text-xs md:text-sm mt-1">Magical ambiance</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                <span className="text-3xl md:text-4xl mb-2 block">✨</span>
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Unique Props</h4>
+                <p className="text-gray-600 text-xs md:text-sm mt-1">Elevate the atmosphere</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                <span className="text-3xl md:text-4xl mb-2 block">🛋️</span>
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Lower Seating</h4>
+                <p className="text-gray-600 text-xs md:text-sm mt-1">Comfortable open-roof seating</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                <span className="text-3xl md:text-4xl mb-2 block">🕯️</span>
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Candle Lights</h4>
+                <p className="text-gray-600 text-xs md:text-sm mt-1">Soft glow for intimacy</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center shadow-sm">
+                <span className="text-3xl md:text-4xl mb-2 block">🎶</span>
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Romantic Music</h4>
+                <p className="text-gray-600 text-xs md:text-sm mt-1">Perfect mood melodies</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Full Description */}
+      <section className="py-8 md:py-12 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto prose prose-amber">
+            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 font-serif">About This Setup</h2>
+            <div className="whitespace-pre-line text-gray-600 leading-relaxed text-sm md:text-base">
+              {pkg.fullDescription}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Cancellation Policy */}
+      <section className="py-8 md:py-12 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 font-serif">📋 Cancellation Policy</h2>
+            <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
+              <p className="text-gray-600 mb-3 md:mb-4 text-sm md:text-base">
+                Rescheduling must be informed at least one day prior. Event can be rescheduled within one month, subject to availability.
+              </p>
+              <p className="text-amber-600 font-semibold text-sm md:text-base">
+                * No Refund Policy Applicable
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Related Packages */}
+      <section className="py-8 md:py-12 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-xl md:text-2xl font-bold mb-6 md:mb-8 font-serif text-center">
+            You May Also Like
+          </h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+            {relatedPackages.map((relPkg) => (
+              <Link key={relPkg.id} href={`/packages/${relPkg.slug}`}>
+                <Card className="h-full hover:shadow-lg transition-all hover:-translate-y-1 border-amber-100 group">
+                  <div className="aspect-square md:aspect-video bg-gradient-to-br from-amber-100 to-orange-100 relative overflow-hidden">
+                    <Image
+                      src={relPkg.thumbnail}
+                      alt={relPkg.name}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <CardContent className="p-2 md:p-4">
+                    <h3 className="font-semibold text-sm md:text-lg mb-1 group-hover:text-amber-600 transition-colors line-clamp-2">
+                      {relPkg.name}
+                    </h3>
+                    <p className="text-gray-600 text-xs md:text-sm line-clamp-2 mb-1 md:mb-2 hidden md:block">
+                      {relPkg.shortDescription}
+                    </p>
+                    <p className="text-base md:text-xl font-bold text-amber-600">
+                      {formatPrice(relPkg.price)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <FFCFooter />
+      <FFCWhatsAppFloat />
+    </div>
+  );
+}
