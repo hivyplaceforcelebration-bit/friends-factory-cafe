@@ -72,7 +72,6 @@ export const metadata: Metadata = {
     telephone: true,
   },
   alternates: {
-    canonical: "https://friendsfactorycafe.com",
     types: {
       "application/rss+xml": "https://friendsfactorycafe.com/feed.xml",
     },

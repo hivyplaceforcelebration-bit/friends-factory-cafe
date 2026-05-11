@@ -45,37 +45,124 @@ export interface QuotaInfo {
 
 const DAILY_QUOTA = 200; // Google Indexing API free tier
 
-let quotaState = {
-  used: 0,
-  date: new Date().toISOString().split("T")[0],
-};
+// In-memory cache with 5-minute TTL (fallback if DB unavailable)
+let cachedQuota: { data: QuotaInfo; expiresAt: number } | null = null;
 
-function getQuota(): QuotaInfo {
-  const today = new Date().toISOString().split("T")[0];
-  if (quotaState.date !== today) {
-    quotaState = { used: 0, date: today };
+async function getQuotaFromDb(): Promise<QuotaInfo | null> {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data, error } = await admin
+      .from("google_indexing_quota")
+      .select("used_count")
+      .eq("date", today)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 = no rows, which is fine for first request of the day
+      console.error("Failed to fetch quota from DB:", error);
+      return null;
+    }
+
+    const used = data?.used_count ?? 0;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    return {
+      dailyLimit: DAILY_QUOTA,
+      used,
+      remaining: Math.max(0, DAILY_QUOTA - used),
+      resetsAt: tomorrow.toISOString(),
+    };
+  } catch (error) {
+    console.error("Error reading quota from DB, falling back to cache:", error);
+    return null;
   }
+}
+
+async function getQuota(): Promise<QuotaInfo> {
+  // Check cache first (5 minute TTL)
+  if (cachedQuota && Date.now() < cachedQuota.expiresAt) {
+    return cachedQuota.data;
+  }
+
+  const dbQuota = await getQuotaFromDb();
+  if (dbQuota) {
+    cachedQuota = { data: dbQuota, expiresAt: Date.now() + 300_000 };
+    return dbQuota;
+  }
+
+  // Fallback: return today's quota with 0 used
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(0, 0, 0, 0);
 
-  return {
+  const fallbackQuota: QuotaInfo = {
     dailyLimit: DAILY_QUOTA,
-    used: quotaState.used,
-    remaining: Math.max(0, DAILY_QUOTA - quotaState.used),
+    used: 0,
+    remaining: DAILY_QUOTA,
     resetsAt: tomorrow.toISOString(),
   };
+
+  cachedQuota = { data: fallbackQuota, expiresAt: Date.now() + 300_000 };
+  return fallbackQuota;
 }
 
-function consumeQuota(count: number) {
-  const today = new Date().toISOString().split("T")[0];
-  if (quotaState.date !== today) {
-    quotaState = { used: 0, date: today };
+async function consumeQuota(count: number): Promise<void> {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    const today = new Date().toISOString().split("T")[0];
+
+    // Upsert: increment used_count or create new row
+    const { error } = await admin.from("google_indexing_quota").upsert(
+      {
+        date: today,
+        used_count: count, // Will be incremented via trigger or handled here
+      },
+      { onConflict: "date" }
+    );
+
+    if (error) {
+      console.error("Failed to consume quota in DB:", error);
+      // Still continue — quota enforcement will be approximate if DB fails
+      return;
+    }
+
+    // Invalidate cache so next getQuota() refreshes from DB
+    cachedQuota = null;
+  } catch (error) {
+    console.error("Error consuming quota:", error);
   }
-  quotaState.used += count;
 }
 
 export { getQuota };
+
+// ── Logging (fire-and-forget to google_indexing_log table) ────────────────
+
+async function logIndexingResult(result: IndexingResponse): Promise<void> {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+
+    const today = new Date().toISOString().split("T")[0];
+    const batchDay = parseInt(today.replace(/-/g, ""));
+
+    await admin.from("google_indexing_log").insert({
+      url: result.url,
+      status: result.status,
+      http_status: result.httpStatus,
+      error_message: result.status === "error" ? result.message : null,
+      batch_day: batchDay,
+    });
+  } catch (error) {
+    // Silently fail — logging errors shouldn't break indexing
+    console.error("Failed to log indexing result to DB:", error);
+  }
+}
 
 // ── Token Cache (reuse token for 50 minutes) ──────────────────────────────
 
@@ -147,7 +234,7 @@ export async function notifyGoogleIndexing(
   url: string,
   type: "URL_UPDATED" | "URL_DELETED" = "URL_UPDATED"
 ): Promise<IndexingResponse> {
-  const quota = getQuota();
+  const quota = await getQuota();
   if (quota.remaining <= 0) {
     return {
       success: false,
@@ -173,35 +260,46 @@ export async function notifyGoogleIndexing(
     );
 
     const data = await response.json();
-    consumeQuota(1);
+    await consumeQuota(1);
 
-    if (response.ok) {
-      return {
-        success: true,
-        url,
-        message: `Submitted to Google (${type})`,
-        status: "success",
-        httpStatus: response.status,
-        submittedAt: new Date().toISOString(),
-      };
-    } else {
-      return {
-        success: false,
-        url,
-        message: data.error?.message || `HTTP ${response.status}`,
-        status: "error",
-        httpStatus: response.status,
-        submittedAt: new Date().toISOString(),
-      };
-    }
+    const result: IndexingResponse = response.ok
+      ? {
+          success: true,
+          url,
+          message: `Submitted to Google (${type})`,
+          status: "success",
+          httpStatus: response.status,
+          submittedAt: new Date().toISOString(),
+        }
+      : {
+          success: false,
+          url,
+          message: data.error?.message || `HTTP ${response.status}`,
+          status: "error",
+          httpStatus: response.status,
+          submittedAt: new Date().toISOString(),
+        };
+
+    // Log to database (fire and forget)
+    logIndexingResult(result).catch((err: unknown) =>
+      console.error("Failed to log indexing result:", err)
+    );
+
+    return result;
   } catch (error) {
-    return {
+    const result: IndexingResponse = {
       success: false,
       url,
       message: error instanceof Error ? error.message : "Unknown error",
       status: "error",
       submittedAt: new Date().toISOString(),
     };
+
+    logIndexingResult(result).catch((err: unknown) =>
+      console.error("Failed to log indexing result:", err)
+    );
+
+    return result;
   }
 }
 
@@ -213,7 +311,7 @@ export async function batchNotifyGoogleIndexing(
 ): Promise<BatchResult> {
   const startTime = Date.now();
   const results: IndexingResponse[] = [];
-  const quota = getQuota();
+  const quota = await getQuota();
 
   // Only submit up to remaining quota
   const maxToSubmit = Math.min(urls.length, quota.remaining);
@@ -244,13 +342,14 @@ export async function batchNotifyGoogleIndexing(
     }
   }
 
+  const finalQuota = await getQuota();
   return {
     total: urls.length,
     submitted: maxToSubmit,
     success: results.filter((r) => r.status === "success").length,
     errors: results.filter((r) => r.status === "error").length,
     skipped: results.filter((r) => r.status === "skipped").length,
-    quotaRemaining: getQuota().remaining,
+    quotaRemaining: finalQuota.remaining,
     results,
     duration: Date.now() - startTime,
   };
@@ -297,7 +396,7 @@ export async function submitUrlsWithQuota(
     .sort((a, b) => b.priority - a.priority)
     .map((u) => u.url);
 
-  const quota = getQuota();
+  const quota = await getQuota();
   const urlsForToday = allUrls.slice(startIndex, startIndex + quota.remaining);
 
   const result = await batchNotifyGoogleIndexing(urlsForToday);

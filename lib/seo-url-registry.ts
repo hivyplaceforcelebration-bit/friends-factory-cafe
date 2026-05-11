@@ -43,6 +43,8 @@ const staticPages = [
   { path: "/services", title: "Our Services", priority: 0.9, freq: "weekly" as const },
   { path: "/virtual-tour", title: "Virtual Tour", priority: 0.7, freq: "monthly" as const },
   { path: "/areas", title: "Areas We Serve", priority: 0.8, freq: "weekly" as const },
+  { path: "/blog", title: "Blog", priority: 0.8, freq: "weekly" as const },
+  { path: "/book-now", title: "Book Now", priority: 1.0, freq: "daily" as const },
 ];
 
 /**
