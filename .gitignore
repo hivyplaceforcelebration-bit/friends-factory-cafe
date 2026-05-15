@@ -25,3 +25,6 @@ public/videos/1000330062.mp4
 public/videos/Prakhar & Priyanka.mp4
 .vercel
 # Deployment trigger
+
+# Google service account credentials (contains private key)
+locate-a-centre-150b6a4dfc7c.json
