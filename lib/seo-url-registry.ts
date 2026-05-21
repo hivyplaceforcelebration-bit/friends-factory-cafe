@@ -147,13 +147,14 @@ export function getAllSiteUrls(): SitemapUrl[] {
     });
   });
 
-  // Expanded keyword pages (~2,800 new long-tail pages)
+  // Expanded keyword pages — exclude area-keyword (thin duplicates, noindexed)
   getAllExpandedKeywords().forEach((ek) => {
+    if (ek.dimension === "area-keyword") return; // noindexed — don't waste crawl budget
     urls.push({
       url: `${BASE_URL}/${ek.slug}`,
       lastModified: currentDate,
       changeFrequency: "weekly",
-      priority: ek.dimension === "area-keyword" || ek.dimension === "area-service" ? 0.7 : 0.75,
+      priority: ek.dimension === "area-service" ? 0.7 : 0.75,
       type: "keyword",
       title: ek.title,
       serviceSlug: ek.parentServiceSlug,

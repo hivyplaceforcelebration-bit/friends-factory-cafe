@@ -54,8 +54,8 @@ function findKeywordBySlug(slug: string): { keyword: ServiceKeyword; service: Se
 // ISR: Revalidate pages every 12 hours for fresh content + fast loading
 export const revalidate = 43200;
 
-// Only allow pre-defined slugs — unknown slugs return 404 instead of dynamic render
-export const dynamicParams = false;
+// Allow dynamic rendering for any unknown slug (returns notFound() in page logic)
+export const dynamicParams = true;
 
 // Generate static params for all possible routes
 export async function generateStaticParams() {
@@ -199,6 +199,13 @@ export async function generateMetadata({
   // Check if it's an expanded keyword page
   const expanded = findExpandedKeyword(slug);
   if (expanded) {
+    // area-keyword pages (e.g. "birthday-surprise-alkapuri-vadodara") are thin
+    // duplicates — point canonical to the base keyword and noindex to save crawl budget
+    const isAreaKeyword = expanded.dimension === "area-keyword";
+    const canonicalUrl = isAreaKeyword && expanded.baseKeywordSlug
+      ? `https://friendsfactorycafe.com/${expanded.baseKeywordSlug}`
+      : `https://friendsfactorycafe.com/${expanded.slug}`;
+
     return {
       title: expanded.metaTitle,
       description: expanded.metaDescription,
@@ -209,8 +216,11 @@ export async function generateMetadata({
         `best ${expanded.parentServiceName.toLowerCase()} vadodara`,
       ],
       alternates: {
-        canonical: `https://friendsfactorycafe.com/${expanded.slug}`,
+        canonical: canonicalUrl,
       },
+      robots: isAreaKeyword
+        ? { index: false, follow: true }
+        : { index: true, follow: true },
       openGraph: {
         title: expanded.metaTitle,
         description: expanded.metaDescription,
