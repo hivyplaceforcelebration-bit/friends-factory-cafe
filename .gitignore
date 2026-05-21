@@ -27,4 +27,7 @@ public/videos/Prakhar & Priyanka.mp4
 # Deployment trigger
 
 # Google service account credentials (contains private key)
-locate-a-centre-150b6a4dfc7c.json
+hivy-indexing-661dc1a51cad.json
+
+# Indexing progress state
+.indexing-progress.json
