@@ -199,13 +199,6 @@ export async function generateMetadata({
   // Check if it's an expanded keyword page
   const expanded = findExpandedKeyword(slug);
   if (expanded) {
-    // area-keyword pages (e.g. "birthday-surprise-alkapuri-vadodara") are thin
-    // duplicates — point canonical to the base keyword and noindex to save crawl budget
-    const isAreaKeyword = expanded.dimension === "area-keyword";
-    const canonicalUrl = isAreaKeyword && expanded.baseKeywordSlug
-      ? `https://friendsfactorycafe.com/${expanded.baseKeywordSlug}`
-      : `https://friendsfactorycafe.com/${expanded.slug}`;
-
     return {
       title: expanded.metaTitle,
       description: expanded.metaDescription,
@@ -216,11 +209,8 @@ export async function generateMetadata({
         `best ${expanded.parentServiceName.toLowerCase()} vadodara`,
       ],
       alternates: {
-        canonical: canonicalUrl,
+        canonical: `https://friendsfactorycafe.com/${expanded.slug}`,
       },
-      robots: isAreaKeyword
-        ? { index: false, follow: true }
-        : { index: true, follow: true },
       openGraph: {
         title: expanded.metaTitle,
         description: expanded.metaDescription,
