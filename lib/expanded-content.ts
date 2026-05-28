@@ -1093,6 +1093,9 @@ function generateSeasonalContent(ek: ExpandedKeyword, service: ServiceCategory):
 
   const sd = seasonalDetails[ek.modifier] || seasonalDetails.winter;
 
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
   if (angle === 0) {
     intro = `The time of year shapes how a celebration feels, not just logistically — weather, light quality, temperature, and the city's energy all vary with season. A ${kwl} at ${V} takes advantage of what that season delivers. Here is what to expect and how to plan for it.`;
     sections = [
@@ -1209,6 +1212,9 @@ function generateStyleContent(ek: ExpandedKeyword, service: ServiceCategory): FF
   const technique = sc.technique.replace(/\$\{V\}/g, V);
   const bestSlot = sc.bestSlot.replace(/\$\{V\}/g, V);
   const packages = sc.packages.replace(/\$\{\w+\(?\d*\)?\}/g, (m) => m.replace(/\$\{formatPrice\((\d+)\)\}/g, (_, n) => formatPrice(Number(n))));
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
 
   if (angle === 0) {
     intro = `A ${kwl} at ${V} is designed to be visually outstanding — not as a secondary consideration but as a primary design principle. Every decoration element, every lighting choice, and every setup configuration is made with photographic quality in mind. ${principle}`;
