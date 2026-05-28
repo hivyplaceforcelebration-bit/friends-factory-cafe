@@ -8,9 +8,8 @@ import { notFound } from "next/navigation";
 import FFCAreaPage from "@/components/ffc-area-page";
 import FFCKeywordPage from "@/components/ffc-keyword-page";
 import FFCServiceCategoryPage from "@/components/ffc-service-category-page";
-import { 
-  vadodaraAreas, 
-  getAreaBySlug, 
+import {
+  getAreaBySlug,
   serviceCategories,
   getServiceBySlug,
   ServiceKeyword,
@@ -23,6 +22,8 @@ import { getKeywordContent } from "@/lib/ffc-keyword-content";
 import { generateKeywordPageContent } from "@/lib/ffc-unique-content";
 import { getAreaContent } from "@/lib/ffc-area-content";
 import { findExpandedKeyword, getAllExpandedSlugs, ExpandedKeyword } from "@/lib/keyword-expansion";
+import { generateExpandedContent } from "@/lib/expanded-content";
+import NewSEOPage from "@/components/new-seo-page";
 
 // Get all keyword slugs from all service categories
 function getAllKeywords(): { slug: string; keyword: ServiceKeyword; service: ServiceCategory }[] {
@@ -57,30 +58,18 @@ export const revalidate = 43200;
 // Allow dynamic rendering for any unknown slug (returns notFound() in page logic)
 export const dynamicParams = true;
 
-// Generate static params for all possible routes
+// Generate static params for expanded keyword pages only.
+// Service category, area, and base keyword pages all have individual static
+// page files under app/{slug}/page.tsx — Next.js matches those first at
+// runtime, so including them here just wastes build capacity.
 export async function generateStaticParams() {
   const params: { slug: string }[] = [];
-  
-  // Add all service category pages
-  serviceCategories.forEach((service) => {
-    params.push({ slug: service.slug });
-  });
-  
-  // Add all area pages
-  vadodaraAreas.forEach((area) => {
-    params.push({ slug: area.slug });
-  });
-  
-  // Add all keyword pages from all services
-  getAllKeywords().forEach(({ slug }) => {
-    params.push({ slug });
-  });
-  
-  // Add all expanded keyword pages (~2,800 new pages)
+
+  // Only expanded keyword slugs (~2,840) — everything else has a static file
   getAllExpandedSlugs().forEach((slug) => {
     params.push({ slug });
   });
-  
+
   return params;
 }
 
@@ -282,7 +271,7 @@ function generateServiceCategorySchema(service: ServiceCategory) {
     },
     {
       question: `What are the timings for ${service.name.toLowerCase()}?`,
-      answer: "We operate from 11 AM to 1 AM. Available time slots include Afternoon (11 AM - 2 PM), Evening (4 PM - 7 PM), Dinner (7 PM - 10 PM), and Late Night (10 PM - 1 AM)."
+      answer: "We operate from 12 PM to 1 AM. Available time slots include Afternoon (12 PM - 3 PM), Evening (4 PM - 7 PM), Dinner (7 PM - 10 PM), and Late Night (10 PM - 1 AM)."
     }
   ];
 
@@ -553,7 +542,7 @@ function generateExpandedKeywordSchema(expanded: ExpandedKeyword, service: Servi
         : `What are the timings for ${expanded.title.toLowerCase()}?`,
       answer: areaName
         ? `Friends Factory Cafe is conveniently located in Gotri, Vadodara and easily accessible from ${areaName}. Most couples reach us within 10-20 minutes by car or auto.`
-        : "We operate from 11 AM to 1 AM. Available slots: Afternoon (11 AM-2 PM), Evening (4 PM-7 PM), Dinner (7 PM-10 PM), Late Night (10 PM-1 AM)."
+        : "We operate from 12 PM to 1 AM. Available slots: Afternoon (12 PM-3 PM), Evening (4 PM-7 PM), Dinner (7 PM-10 PM), Late Night (10 PM-1 AM)."
     },
   ];
 
@@ -677,16 +666,41 @@ export default async function SlugPage({
         metaTitle: expanded.metaTitle,
         metaDescription: expanded.metaDescription,
       };
-      const schema = generateExpandedKeywordSchema(expanded, parentService);
-      return (
-        <>
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-          />
-          <FFCKeywordPage service={parentService} keyword={virtualKeyword} />
-        </>
-      );
+      
+      const content = generateExpandedContent(expanded, parentService, virtualKeyword);
+
+      // Parse the generated testimonial content
+      const rawTestimonials = content.testimonialContent.split("\n\n");
+      const firstRaw = rawTestimonials[0] || "";
+      const parts = firstRaw.split("—");
+      const tText = (parts[0] || "").replace(/^"|"$/g, "").trim();
+      const authorPart = (parts[1] || "").trim();
+      const authorParts = authorPart.split(",");
+      const tName = (authorParts[0] || "Happy Couple").trim();
+      const tArea = (authorParts[1] || "Vadodara").trim();
+
+      const pageData = {
+        slug: expanded.slug,
+        metaTitle: expanded.metaTitle,
+        metaDesc: expanded.metaDescription,
+        h1: expanded.h1,
+        canonical: `https://friendsfactorycafe.com/${expanded.slug}`,
+        intro: content.introduction,
+        highlights: content.whyChooseUs,
+        sections: content.sections,
+        process: content.process.map(p => ({ step: p.step, detail: p.description })),
+        faqs: content.faqContent.map(f => ({ q: f.question, a: f.answer })),
+        testimonial: {
+          name: tName,
+          area: tArea,
+          text: tText,
+          stars: 5,
+        },
+        cta: content.closingCta.split("\n\n")[0] || content.closingCta,
+        serviceCategory: parentService.name,
+      };
+
+      return <NewSEOPage data={pageData} />;
     }
   }
   

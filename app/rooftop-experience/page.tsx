@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   title: service.metaTitle,
   description: service.metaDescription,
   keywords: `rooftop vadodara, rooftop restaurant vadodara, rooftop dining, sky lounge, terrace dining, open air restaurant vadodara`,
+  alternates: {
+    canonical: 'https://friendsfactorycafe.com/rooftop-experience',
+  },
 };
 
 export default function RooftopExperiencePage() {

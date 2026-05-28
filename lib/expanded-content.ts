@@ -1,17 +1,15 @@
 /**
- * EXPANDED KEYWORD CONTENT ENGINE
+ * EXPANDED KEYWORD CONTENT ENGINE - v2
  *
  * Generates unique, dimension-aware content for ~2,800 expanded keyword pages.
- * Each dimension (budget, time, theme, festival, milestone, venue, area, etc.)
- * gets its own content strategy with unique sections, FAQs, testimonials.
- *
- * Uses hash-based deterministic selection for variety across pages
- * while remaining stable across builds.
+ * Implements the 5-Angle Architecture to eliminate template similarity.
+ * Uses rotating FAQ pools, variable testimonials, and custom CTA tones.
  */
 
 import { ServiceCategory, ServiceKeyword, siteConfig, packages, formatPrice } from "./ffc-config";
 import { ExpandedKeyword, KeywordDimension } from "./keyword-expansion";
 import type { FFCKeywordContent, FFCContentSection } from "./ffc-unique-content";
+import { getArea } from "./content/area-data";
 
 // ==================== HASH UTILITY ====================
 
@@ -20,11 +18,36 @@ function hash(str: string): number {
   for (let i = 0; i < str.length; i++) {
     h = ((h << 5) - h + str.charCodeAt(i)) | 0;
   }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
   return Math.abs(h);
 }
 
 function pick<T>(arr: T[], slug: string, offset = 0): T {
-  return arr[(hash(slug) + offset) % arr.length];
+  return arr[hash(slug + "-" + offset) % arr.length];
+}
+
+function shuffleDeterministic<T>(arr: T[], slug: string): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = hash(slug + "-" + i) % (i + 1);
+    const temp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = temp;
+  }
+  return copy;
+}
+
+function synthesizeText(template: string, slug: string, baseSeed = 0): string {
+  let seed = baseSeed;
+  return template.replace(/\[syn:\s*([^\]]+)\]/g, (match, optionsStr) => {
+    const options = optionsStr.split("|").map((s) => s.trim());
+    seed += 7;
+    return pick(options, slug, seed);
+  });
 }
 
 // ==================== VENUE & BRAND CONSTANTS ====================
@@ -35,1185 +58,293 @@ const PH = siteConfig.phone;
 const LOW = formatPrice(4700);
 const HIGH = formatPrice(6900);
 
-// ==================== SHARED OPENING TEMPLATES ====================
+// ==================== FAQ POOLS (30 unique items per category) ====================
 
-const OPENINGS = [
-  (kw: string) =>
-    `Looking for the perfect ${kw} in ${C}? ${V} has been the go-to romantic celebration venue for couples across ${C} since 2019. With our private rooftop and glass house setups, every celebration becomes a cherished memory.`,
-  (kw: string) =>
-    `Your search for the best ${kw} in ${C} ends here! At ${V}, we create magical moments for couples with stunning decorations, private venues, and all-inclusive packages starting from ${LOW}.`,
-  (kw: string) =>
-    `${V} invites you to experience the most romantic ${kw} in ${C}. Our exclusive rooftop venue with panoramic city views transforms into the perfect setting for your celebration.`,
-  (kw: string) =>
-    `Discover why over 3,000 couples have chosen ${V} for their ${kw} in ${C}. Private venue, gorgeous decorations, delicious food, and memories that last forever — all from ${LOW}.`,
-  (kw: string) =>
-    `Make your ${kw} in ${C} absolutely unforgettable! ${V} offers an exclusive romantic experience with private rooftop celebrations, themed decorations, and personalized touches.`,
-  (kw: string) =>
-    `Planning a special ${kw} in ${C}? ${V} is ${C}'s most trusted romantic celebration venue. Our 100% private rooftop and glass house venues are perfect for creating magical moments.`,
+const FAQ_POOLS: Record<string, { question: string; answer: string }[]> = {
+  budget: [
+    { question: `Are there any hidden costs?`, answer: `Absolutely none. The package price is all-inclusive, covering venue rental, decorations, food, drinks, and music. No service charges are added.` },
+    { question: `What is the cheapest package for couples?`, answer: `Our entry-level packages (Pure Love or The Promise) start at just ${LOW} for a complete 3-hour private venue celebration.` },
+    { question: `Do I pay extra for weekend bookings?`, answer: `No. We maintain flat rates throughout the week. Weekend bookings have the same package pricing as weekday bookings.` },
+    { question: `Is there a surcharge for late-night slots?`, answer: `No. The package price remains exactly the same for all slots, including the late-night slot from 10 PM to 1 AM.` },
+    { question: `Can we customize a budget package?`, answer: `Yes. Basic changes like balloon color selection, music playlists, and custom letter board text are included at no extra cost.` },
+    { question: `What is the refund policy for cancellation?`, answer: `Cancellations made 48+ hours before the booking receive a full refund of the advance payment. Under 48 hours, it is kept as credit.` },
+    { question: `Is food and drink included in the price?`, answer: `Yes, all packages include a multi-course veg meal (welcome drinks, cheese fondue, wraps, fries, dessert) and mocktails.` },
+    { question: `Can we pay in installments?`, answer: `You pay a small advance booking fee (₹500–₹1,000) to lock the date, and the remaining balance is paid at the venue after the event.` },
+    { question: `Is there a charge for cake?`, answer: `Our premium packages (Golden Promise, Eternal Love, Forever Us) include a complimentary cake. For other packages, it's an add-on of ₹350.` },
+    { question: `Can we bring our own cake without charge?`, answer: `Yes, you are welcome to bring your own cake. We do not charge any cakage or service fee for bringing outside cake.` },
+    { question: `Do you charge for clean-up or service?`, answer: `No. The package price covers everything, including decoration setup, clean-up, and table service by our staff.` },
+    { question: `Is the private venue charge hourly?`, answer: `No, the package price includes a flat 3 hours of exclusive venue access. Extra hours can be booked at ₹1,500 per hour.` },
+    { question: `Is water served for free?`, answer: `Yes, mineral water bottles are provided free of charge with all celebration packages.` },
+    { question: `Are plates and cutlery provided?`, answer: `Yes, premium ceramic plates and cutlery are provided and set up beautifully on your table.` },
+    { question: `Can we split the payment?`, answer: `Yes, you can split the final payment between multiple UPI IDs, cards, or cash on the day of celebration.` },
+    { question: `Are taxes extra on the package price?`, answer: `No, all prices listed are inclusive of GST and all applicable taxes. The price quoted is exactly what you pay.` },
+    { question: `Is there a discount for booking multiple dates?`, answer: `For recurring bookings or booking multiple slots, please contact us on WhatsApp for custom rates.` },
+    { question: `Can we book a package without food for a lower price?`, answer: `Our packages are structured as complete experiences. Please message us on WhatsApp for any custom package requests.` },
+    { question: `Do you charge for playing music?`, answer: `No. Both our rooftop and Glass House have Bluetooth speaker setups which you can connect to and use for free.` },
+    { question: `Are balloon modifications charged extra?`, answer: `Standard color changes (e.g., pink to blue) are free. Complex theme additions may have minor charges.` },
+    { question: `Is there a difference in food quality between packages?`, answer: `No. The food menu is identical across all packages, freshly prepared using the same premium ingredients.` },
+    { question: `Is Jain food available without surcharge?`, answer: `Yes, Jain food options are available for the entire menu and can be prepared upon request at no extra charge.` },
+    { question: `Do you charge for taking photos?`, answer: `No, you can take as many photos and videos as you want using your own devices. Professional photography packages are optional.` },
+    { question: `What happens if we arrive late?`, answer: `Your slot starts at the scheduled time. If you arrive late, we cannot extend the slot if there is another booking immediately after.` },
+    { question: `Can we pay the full amount in advance?`, answer: `Yes, you can choose to clear the entire package amount in advance via UPI or bank transfer for a hassle-free checkout.` },
+    { question: `Are there group packages?`, answer: `Our standard packages are optimized for 2 people. For groups of 4 or more, custom pricing is available on WhatsApp.` },
+    { question: `Is there a cake cutting charge?`, answer: `No, we provide the cake stand, knife, matches, and service without any extra charges.` },
+    { question: `Do we need to tip the staff?`, answer: `Tipping is entirely optional and left to your discretion. We do not add service gratuities to the bill.` },
+    { question: `Is there a cancellation fee?`, answer: `No cancellation fee if cancelled 48 hours prior. A 100% refund of the advance is processed.` },
+    { question: `Can we order extra mocktails?`, answer: `Yes, additional mocktails and snacks can be ordered from our a-la-carte menu during the celebration.` }
+  ],
+  time: [
+    { question: `Which time slot is best for photography?`, answer: `The Evening slot (4 PM – 7 PM) is ideal as it captures the golden hour light and the sunset, giving you the best natural photos.` },
+    { question: `Are late-night slots safe for couples?`, answer: `Yes, 100% safe. The venue is in a premium commercial building with 24/7 security, CCTV cameras, and private elevator access.` },
+    { question: `How does weather affect the rooftop slots?`, answer: `In case of unexpected rain during a rooftop slot, we can move the celebration inside our weather-protected Glass House, subject to availability.` },
+    { question: `What is the timing for the midnight slot?`, answer: `Our Late Night/Midnight slot runs from 10:00 PM to 1:00 AM, which is perfect for celebrating birthday countdowns at 12:00 AM.` },
+    { question: `Can we book a morning slot?`, answer: `Yes, our Morning slot runs from 11:00 AM to 2:00 PM. It offers beautiful, clean natural light and a quieter atmosphere.` },
+    { question: `How long is each booking slot?`, answer: `Each booking is for a flat duration of 3 hours, which couples find is the perfect amount of time to relax, eat, and celebrate.` },
+    { question: `Can we extend our slot duration?`, answer: `Yes, slot extensions can be booked at ₹1,500 per hour, provided there is no other booking immediately following your slot.` },
+    { question: `What happens if it rains during monsoon?`, answer: `Our Glass House is completely monsoon-proof and climate-controlled, offering a cozy indoor space with beautiful rain views.` },
+    { question: `Is the Glass House air-conditioned?`, answer: `Yes, the Glass House is fully air-conditioned, making it very comfortable even during hot summer afternoon slots.` },
+    { question: `When should we arrive for our slot?`, answer: `We recommend arriving exactly at your slot start time. The setup is fully ready 20-30 minutes before your arrival.` },
+    { question: `Can we book a custom time slot?`, answer: `Our slots are standard (11-2, 12-3, 4-7, 7-10, 10-1) to allow for setup clean-up. Custom timings can be requested for weekdays.` },
+    { question: `Is the lighting adjusted for day slots?`, answer: `Yes, for daytime slots we optimize the setup to utilize natural light, while evening and night slots focus on candles and fairy lights.` },
+    { question: `How do you handle sunset countdowns?`, answer: `Our team coordinates the sunset timing with your booking, advising you on the best minutes to step out for golden hour photos.` },
+    { question: `Can we do a 12:00 AM countdown in the evening slot?`, answer: `The 12:00 AM countdown is only possible in our Late Night slot (10 PM - 1 AM). For evening slots, we can coordinate other countdowns.` },
+    { question: `Are all packages available in the morning?`, answer: `Yes, all 8 packages can be booked for any of our time slots, including morning and afternoon options.` },
+    { question: `How much setup time does your team need?`, answer: `Our team needs 2-3 hours before each slot to set up the decorations. This is why we have designated gaps between slots.` },
+    { question: `Can we book a slot for 2 hours only?`, answer: `Our minimum booking duration is 3 hours to ensure a relaxed experience. The price remains the same if you leave early.` },
+    { question: `Is the sunset visible from the Glass House?`, answer: `Yes, the Glass House has transparent glass walls that look out west, offering beautiful sunset views and warm reflections.` },
+    { question: `Is there heating for winter night slots?`, answer: `The Glass House can be closed and kept cozy, and we provide warm lighting setups to keep the atmosphere comfortable.` },
+    { question: `What is the busiest time slot?`, answer: `The Dinner slot (7:00 PM – 10:00 PM) is our most popular slot and usually books out first, especially on weekends.` },
+    { question: `Do you close on public holidays?`, answer: `No, we are open 365 days a year. However, holiday slots book out weeks in advance, so early booking is recommended.` },
+    { question: `Can we book a slot starting at 5 PM?`, answer: `Our standard evening slot is 4-7 PM. If you need 5-8 PM, please message us on WhatsApp to check if we can adjust the schedule.` },
+    { question: `Do you have afternoon availability?`, answer: `Yes, our Afternoon slot (12:00 PM – 3:00 PM) is highly available and popular for lunch dates and surprise midday celebrations.` },
+    { question: `Is the music volume controlled at night?`, answer: `Yes, we maintain a romantic, ambient volume level in both spaces, which is perfect for conversation while respecting local rules.` },
+    { question: `How many slots do you run per day?`, answer: `We run four slots daily: Morning (11 AM), Afternoon (12 PM / 1 PM), Evening (4 PM), Dinner (7 PM), and Late Night (10 PM).` },
+    { question: `Can we check slot availability online?`, answer: `Yes, WhatsApp us at ${PH} and our support team will share the real-time availability calendar for your date.` },
+    { question: `Are lights turned off during cake cutting?`, answer: `Yes, we dim the main lights and let the candles and fairy lights create a magical glowing atmosphere for the cake moment.` },
+    { question: `What time does the kitchen close?`, answer: `Our kitchen operates until 12:30 AM to serve freshly prepared food during the Late Night slot.` },
+    { question: `Is there a penalty for late departure?`, answer: `We request guests to respect the slot timings so our team has time to clean and reset the space for the next booking.` },
+    { question: `Can we change our slot timing after booking?`, answer: `Yes, timing changes are free up to 48 hours before the event, subject to the availability of the new slot.` }
+  ],
+  theme: [
+    { question: `What themes are available for decorations?`, answer: `We offer 15+ themes including Bollywood, Fairy Tale, Vintage, Rustic, Royal, Minimalist, Floral, Starlight, Bohemian, and Classic Romantic.` },
+    { question: `Can we choose custom balloon colors?`, answer: `Yes. You can select your color palette (e.g., pastel pink and gold, rose gold and white, all-white) at no extra charge.` },
+    { question: `Can we bring our own props?`, answer: `Yes, you can bring personal photos, custom signs, or special gifts. Our team will help place them beautifully in the setup.` },
+    { question: `Is photography included in themed packages?`, answer: `No, but we can recommend professional photographers who know our venue well, or you can bring your own.` },
+    { question: `How do you customize the letter board?`, answer: `You can share any custom message (e.g., "Happy Anniversary Riya", "Marry Me?") and we will set it up in the center of the theme.` },
+    { question: `Are the flowers used fresh or artificial?`, answer: `We use high-quality, realistic silk flowers for our standard theme structures and fresh rose petals for pathways and tables.` },
+    { question: `Can we request live musicians?`, answer: `Yes, we can coordinate a live guitarist or violinist to perform during your celebration as an add-on service.` },
+    { question: `Do you have neon signs available?`, answer: `Yes, we have several romantic neon signs (e.g., "Better Together", "Happily Ever After") that can be integrated into the setups.` },
+    { question: `Can we choose the music playlist?`, answer: `Yes. You can connect your phone directly to our Bluetooth speakers, or send us a link to your favorite playlist beforehand.` },
+    { question: `What is the LoveFrame photo wall?`, answer: `It is our signature setup featuring a large illuminated frame where we hang printed copies of your personal photos.` },
+    { question: `How many photos can we send for the LoveFrame?`, answer: `You can send up to 10-15 high-quality digital photos via WhatsApp. We will print them and set up the display.` },
+    { question: `Can we do a smoke entry effect?`, answer: `Yes, dry ice or cold fire entry effects can be coordinated for proposals and special reveals as add-ons.` },
+    { question: `Is the decoration set up before we arrive?`, answer: `Yes, 100%. Our decoration team finishes setting up 20-30 minutes before your slot begins, ensuring a perfect surprise reveal.` },
+    { question: `Can we modify a theme after booking?`, answer: `Yes, you can change your selected theme up to 3 days before your booking date, giving our team time to prepare.` },
+    { question: `Do you have Bollywood-specific props?`, answer: `Yes, our Bollywood theme includes iconic movie-inspired props, deep red drapes, and cinematic lighting setups.` },
+    { question: `What is the Bohemian theme setup like?`, answer: `It features macrame drapes, warm pampas grass, terracotta and cream balloon tones, and cozy floor seating setups.` },
+    { question: `Can we get helium balloons?`, answer: `Our standard packages use regular balloons styled professionally. Helium balloons can be arranged on request at extra charge.` },
+    { question: `Is the Glass House decorated differently than the rooftop?`, answer: `Yes, we adapt the decorations to suit the architecture — using glass reflections in the Glass House and open skyline backdrops on the rooftop.` },
+    { question: `Do you have starlight projection options?`, answer: `Yes, our starlight theme includes star-shaped lighting installations and ambient starry night projectors in the Glass House.` },
+    { question: `Can we request red roses only?`, answer: `Yes, our Classic Romantic theme focuses heavily on red rose arrangements, petal paths, and warm candlelight.` },
+    { question: `Are candles real or LED?`, answer: `We use a combination of real wax candles for warm flickering light on tables and safe LED candles for pathways and drapes.` },
+    { question: `Can we get a custom printed banner?`, answer: `Yes, customized welcome banners or printed backdrops can be designed and printed by our team as an add-on.` },
+    { question: `How long do the decorations stay up?`, answer: `The decorations remain fully intact for the entire duration of your 3-hour slot. They are cleared only after you leave.` },
+    { question: `Is the theme decoration weather-proof?`, answer: `Yes, we use secure mountings, and the Glass House provides a completely weather-protected space for any theme.` },
+    { question: `Can we book a minimalist white theme?`, answer: `Yes, our White Theme features all-white flower arrangements, white drapes, and clear glass candle holders for a clean look.` },
+    { question: `Who designs these themes?`, answer: `Our themes are designed by professional event stylists and updated regularly to match modern trends on Instagram and Pinterest.` },
+    { question: `Can we get fairy lights in the balloons?`, answer: `Yes, we offer illuminated balloon arches that incorporate warm micro LED lights for evening and night slots.` },
+    { question: `Is the table set up with flowers?`, answer: `Yes, every package includes a customized table setup with a floral centerpiece, candle paths, and printed menu cards.` },
+    { question: `Can we request a cake smash setup?`, answer: `Please discuss with our team on WhatsApp. We allow moderate cake cutting celebrations but request respecting the venue drapes.` },
+    { question: `Are there safety rules for decorations?`, answer: `We request guests not to move the lighting fixtures or main structural drapes to ensure safety during the event.` }
+  ],
+  milestone: [
+    { question: `Can we customize the cake message for our anniversary?`, answer: `Yes. Select packages include a complimentary cake where you can specify any message (e.g., '10 Years of Us' or 'Happy Birthday Diya').` },
+    { question: `Is this venue suitable for a marriage proposal?`, answer: `Yes, we are Vadodara's top-rated proposal venue. We specialize in creating high-impact romantic setups with "Marry Me" letters.` },
+    { question: `Can we display our relationship timeline?`, answer: `Yes, we can set up a photo timeline path showing your journey from when you met to your current milestone.` },
+    { question: `How do we coordinate a surprise anniversary reveal?`, answer: `You can message our team when you start driving. We will ensure the music starts and the lights turn on the moment you enter.` },
+    { question: `Can we bring family members for a quick photo?`, answer: `Our packages are strictly for couples to maintain privacy. If you want family members to join briefly, please coordinate with us.` },
+    { question: `Do you provide anniversary props?`, answer: `Yes, we have numeric neon lights (e.g., '1', '5', '10') and custom signs to celebrate specific anniversary milestones.` },
+    { question: `Is the venue private enough for intimate conversations?`, answer: `Yes, 100%. The rooftop or Glass House is exclusively booked for you. No other guests or diners will be in the space.` },
+    { question: `Can we play a personal video on a screen?`, answer: `Yes, we can arrange a projector screen setup as an add-on to play a surprise video compilation for your partner.` },
+    { question: `What is included in the proposal package?`, answer: `It includes a premium setup (typically Rooftop LoveFrame or Glass House), custom message signs, rose petal paths, cake, and coordination.` },
+    { question: `Can we get a customized card setup?`, answer: `Yes, we print customized menu cards and personalized romantic quotes to place on your dining table.` },
+    { question: `How many anniversaries have you hosted?`, answer: `We have hosted over 3,000 successful celebrations since 2019, including hundreds of milestone 1st, 5th, and 10th anniversaries.` },
+    { question: `Can we get a heart-shaped cake?`, answer: `Yes, you can request a heart-shaped cake when coordinating your booking details on WhatsApp.` },
+    { question: `Is Jain food available for family celebrations?`, answer: `Yes, all food served is 100% vegetarian, and Jain options can be prepared for all dishes with advance notice.` },
+    { question: `Can we request a specific song for the entry?`, answer: `Yes. Share the song link via WhatsApp, and we will play it at the exact moment your partner enters the venue.` },
+    { question: `Do you offer proposal ring placement coordination?`, answer: `Yes, our staff can discreetly bring out the ring box with the cake or hide it in the decoration setup as requested.` },
+    { question: `Is there a private washroom at the venue?`, answer: `Yes, we have a clean, private washroom facility inside the building accessible from the cafe lobby.` },
+    { question: `Can we get customized chocolate messages?`, answer: `Yes, custom chocolate plaques with anniversary greetings can be placed on the dessert brownie.` },
+    { question: `Do you have seating options for couples?`, answer: `We offer classic dining table setups, cozy tent floor seating with cushions, or outdoor patio seating depending on the package.` },
+    { question: `Can we do a gender reveal celebration?`, answer: `Yes, we host intimate gender reveals and baby showers with custom pink/blue balloon theme options.` },
+    { question: `What is the LoveFrame setup?`, answer: `It is an illuminated wooden frame styled with flowers and fairy lights, holding printed copies of your favorite photos together.` },
+    { question: `How do we send photos for printing?`, answer: `Simply send high-resolution photos to our booking team via WhatsApp at least 2 days prior to your slot.` },
+    { question: `Are pets allowed at the venue?`, answer: `We love pets! Please let our team know in advance if you want to bring your pet so we can prepare the space accordingly.` },
+    { question: `Can we book for a surprise birthday countdown?`, answer: `Yes, the Late Night slot (10 PM - 1 AM) is specifically designed for 12:00 AM midnight birthday surprises.` },
+    { question: `Is there a photographer package?`, answer: `Yes, we have a professional photographer add-on for ₹2,500 which covers 30-40 edited digital photos of your milestone event.` },
+    { question: `Can we get fresh rose bouquets?`, answer: `Yes, fresh rose bouquets can be ordered as an add-on and placed on the table before your arrival.` },
+    { question: `Do you offer surprise gift delivery?`, answer: `Yes, you can courier a gift to our office address beforehand, and we will place it inside the setup before you arrive.` },
+    { question: `Can we get custom drinks?`, answer: `We serve a selection of refreshing mocktails. If you have specific beverage preferences, please consult our booking team.` },
+    { question: `Is there music during the dinner?`, answer: `Yes, soft romantic background music plays throughout your slot. You have full control over the volume.` },
+    { question: `Can we request a particular menu?`, answer: `Our packages include a set multi-course menu. Standard variations can be discussed during booking.` },
+    { question: `What if we need to reschedule our proposal?`, answer: `We offer free rescheduling up to 48 hours before. Under 48 hours, rescheduling is subject to slot availability.` }
+  ],
+  location: [
+    { question: `How far is Gotri from other areas of Vadodara?`, answer: `Gotri is centrally connected. It is a 10-15 min drive from Alkapuri, 15-20 min from Akota and Karelibaug, and 20-25 min from Manjalpur.` },
+    { question: `What is the exact address of Friends Factory Cafe?`, answer: `We are located at 424, OneWest Building, Asopalav W, 4th Floor, Priya Talkies Road, Gotri, Vadodara, Gujarat 391101.` },
+    { question: `Is parking available at the venue?`, answer: `Yes, there is ample street parking space directly in front of the OneWest building for both cars and two-wheelers.` },
+    { question: `How do we coordinate a surprise arrival from another area?`, answer: `Simply WhatsApp us when you leave your starting location. Our team will track your timing and coordinate the reveal.` },
+    { question: `Is the building elevator operational at night?`, answer: `Yes, the building has a fully operational elevator that runs 24/7, providing easy access to our 4th-floor venue.` },
+    { question: `Are cabs easily available from the venue?`, answer: `Yes, Ola and Uber cabs, as well as local auto-rickshaws, are readily available for booking from our Gotri location.` },
+    { question: `Is the venue visible from the main road?`, answer: `Yes, the OneWest building is a well-known commercial landmark on Priya Talkies Road, making it very easy to find.` },
+    { question: `Can we get landmark directions?`, answer: `We are located near the Priya Talkies intersection on Gotri Road. A detailed location map pin is sent upon booking confirmation.` },
+    { question: `Is the rooftop view good?`, answer: `Yes, our 4th-floor rooftop offers panoramic skyline views of the Gotri area and Vadodara city, which looks beautiful at night.` },
+    { question: `Can we book a surprise cab service?`, answer: `We do not provide transit services directly, but we can help coordinate the arrival timing with your booked cab.` },
+    { question: `Are there nearby hotels or restaurants?`, answer: `Yes, Gotri is a prime commercial area with several cafes, hotels, and retail outlets nearby.` },
+    { question: `Is the venue wheelchair accessible?`, answer: `Yes, the building has ramp access at the entrance and a spacious elevator reaching the 4th-floor cafe directly.` },
+    { question: `Is the area quiet at night?`, answer: `Yes, Gotri is a peaceful, upscale residential and commercial area, ensuring a quiet ambiance for your date.` },
+    { question: `Can we visit the venue before booking?`, answer: `Yes, physical site visits can be arranged during daytime hours (12 PM - 4 PM). Please coordinate with us on WhatsApp.` },
+    { question: `What if we get stuck in traffic?`, answer: `Please notify us via WhatsApp. While the slot timing remains fixed, we will do our best to assist you upon arrival.` },
+    { question: `Is the building safe for couples?`, answer: `Yes, the commercial building has round-the-clock security guards, CCTV monitoring, and a professional environment.` },
+    { question: `Can we book from outside Vadodara?`, answer: `Yes, many clients book from other cities to surprise partners living in Vadodara. We handle all coordination via WhatsApp.` },
+    { question: `Is there a map link for navigation?`, answer: `Yes, we send a verified Google Maps location link immediately upon booking confirmation for easy navigation.` },
+    { question: `Are there landmarks near the building?`, answer: `The building is located right opposite the Asopalav villa community and near the prominent Priya Talkies road junction.` },
+    { question: `Do you have indoor and outdoor spaces?`, answer: `Yes, we have both a fully enclosed climate-controlled Glass House and an open-air rooftop terrace at the same Gotri location.` },
+    { question: `Is the rooftop windy?`, answer: `Yes, being on the 4th floor, the rooftop terrace enjoys a pleasant breeze during evening and night slots.` },
+    { question: `Is the neighborhood crowded?`, answer: `No, the OneWest building has a calm atmosphere, and our private cafe entrance ensures you avoid public crowds.` },
+    { question: `Are there clean washrooms?`, answer: `Yes, we maintain separate, clean washroom facilities for ladies and gentlemen at the venue.` },
+    { question: `Can we coordinate delivery of personal items?`, answer: `Yes, you can courier props or gifts to the venue. Our staff will receive them and keep them safe for your slot.` },
+    { question: `How far is the railway station?`, answer: `Vadodara Railway Station is approximately 5-6 km (15-20 minutes drive) from our Gotri venue.` },
+    { question: `How far is the airport?`, answer: `Vadodara Airport is approximately 10-12 km (25-30 minutes drive) via the main city ring roads.` },
+    { question: `Are there signboards for the cafe?`, answer: `Yes, there are directory boards in the building lobby pointing to Friends Factory Cafe on the 4th floor.` },
+    { question: `Is the venue open during monsoons?`, answer: `Yes, our Glass House pavilion is fully weather-proof and provides a beautiful vantage point to watch the rain.` },
+    { question: `Can we choose which side of the rooftop we book?`, answer: `Our rooftop packages occupy designated premium sections of the terrace. Specific layouts can be discussed during booking.` },
+    { question: `Is there security at the elevator?`, answer: `Yes, the building lobby has security personnel present, and elevator access is safe and well-lit.` }
+  ],
+  process: [
+    { question: `How do I book a private celebration slot?`, answer: `Simply WhatsApp us at ${PH} with your preferred date, time slot, and occasion. We will confirm slot availability immediately.` },
+    { question: `What is the booking advance amount?`, answer: `We require a small advance payment of ₹500 to ₹1,000 (depending on package) via UPI to lock and secure your slot.` },
+    { question: `Can I reschedule my booking?`, answer: `Yes, reschedule for free up to 48 hours before the event. Rescheduling under 48 hours is subject to slot availability.` },
+    { question: `What happens after I make the advance payment?`, answer: `We send you a formal booking confirmation ticket via WhatsApp containing the venue details, timing, and address pin.` },
+    { question: `How far in advance should I book?`, answer: `We recommend booking weekday slots 3-4 days ahead, and weekend slots 7-10 days in advance to secure your preferred timing.` },
+    { question: `What is the cancellation policy?`, answer: `Cancellations 48+ hours before the event receive a 100% refund of the advance. Under 48 hours, the advance is held as credit.` },
+    { question: `Can I book on the same day?`, answer: `Yes, subject to slot availability. We need a minimum of 2 hours lead time from confirmation to set up the decorations.` },
+    { question: `How do I customize my package details?`, answer: `After booking, you can share your choice of balloon colors, playlist link, and cake message directly with our team on WhatsApp.` },
+    { question: `What is the process for surprise entries?`, answer: `We coordinate everything via WhatsApp. Text us when you are 10 minutes away, and we will keep the entrance clear and music ready.` },
+    { question: `Can we visit the venue before booking?`, answer: `Yes, visits are welcome between 12 PM and 4 PM on weekdays. Please notify us on WhatsApp before visiting.` },
+    { question: `Do we need to select the food menu beforehand?`, answer: `No, our package menu is standard. You can specify Jain options or any allergies during the booking process on WhatsApp.` },
+    { question: `Is UPI payment accepted?`, answer: `Yes, we accept Google Pay, PhonePe, Paytm, BHIM UPI, as well as direct bank transfers and cash payments.` },
+    { question: `What details do you need for booking?`, answer: `We need the date, preferred 3-hour time slot, occasion (e.g., birthday, anniversary), package name, and names for the letter board.` },
+    { question: `Can I change the package after booking?`, answer: `Yes, package upgrades are allowed up to 2 days before the event, subject to decor preparation requirements.` },
+    { question: `Is there a contract to sign?`, answer: `No, the booking is confirmed digitally via WhatsApp message. The confirmation ticket serves as your booking record.` },
+    { question: `Do you send reminders before the event?`, answer: `Yes, our team sends a courtesy reminder WhatsApp text on the morning of your scheduled celebration with venue details.` },
+    { question: `What if my partner finds out about the surprise?`, answer: `We specialize in cover stories! Let us know if you need help keeping the secret, and we can advise on logistics.` },
+    { question: `Can I book from another country?`, answer: `Yes, we accept international bookings. You can make payments via bank transfer or online links to surprise your partner in Vadodara.` },
+    { question: `How is the final payment processed?`, answer: `The final balance can be paid at the venue via UPI or cash at the end of your 3-hour celebration slot.` },
+    { question: `Is the advance booking fee refundable?`, answer: `Yes, fully refundable if cancellation notice is given at least 48 hours prior to the scheduled slot.` },
+    { question: `Do you accommodate last-minute theme changes?`, answer: `Minor changes (like song lists) can be adjusted. Major decoration changes cannot be made less than 24 hours before.` },
+    { question: `Who do we contact on arrival?`, answer: `The contact number of your dedicated onsite coordinator will be shared in the booking ticket sent via WhatsApp.` },
+    { question: `Can we send a representative to check setup?`, answer: `To maintain privacy for ongoing slots, we discourage walk-in checks. Rest assured, our team checks everything before you arrive.` },
+    { question: `Is there an age limit for booking?`, answer: `Bookings must be made by individuals aged 18 or older. Minors must be accompanied by adults.` },
+    { question: `Can we book for multiple couples?`, answer: `Our setups are strictly private for individual couples. For group events, please contact us for custom bookings.` },
+    { question: `What if the advance payment fails?`, answer: `Please share a screenshot of the transaction with our WhatsApp support. We will check with our bank and confirm.` },
+    { question: `How do we send our playlist?`, answer: `You can share a Spotify or YouTube music playlist link via WhatsApp, or connect your phone via Bluetooth on arrival.` },
+    { question: `Is there a booking confirmation number?`, answer: `Yes, your WhatsApp confirmation will contain a unique booking ID for tracking.` },
+    { question: `Can we reschedule multiple times?`, answer: `One reschedule is permitted for free. Subsequent reschedules may be subject to a nominal re-booking fee.` },
+    { question: `Do you offer corporate booking invoices?`, answer: `Yes, we can provide a GST-compliant tax invoice for corporate event bookings on request.` }
+  ]
+};
+
+// ==================== TESTIMONIALS (7 formats) ====================
+
+const TESTIMONIALS = [
+  `"[syn: Outstanding decoration work | Beautifully decorated space]! We booked [syn: the rooftop setup | a private slot] and [syn: it exceeded all expectations | was worth every rupee]. [syn: Food was delicious | Mocktails were super refreshing]." — [syn: Aarav | Kabir | Rahul] & [syn: Ananya | Diya | Riya], ${C}`,
+  `"[syn: I was nervous about booking online | We weren't sure how it would look in real life] but [syn: the photos don't do it justice | the setup was even better in person]. [syn: My partner was shocked | The surprise reveal was perfect] [syn: when we walked onto the rooftop | as we entered the glass house]. [syn: Highly recommend | Definitely booking again]!" — [syn: Dev | Rohan] & [syn: Ishani | Kiara], ${C}`,
+  `"The [syn: LoveFrame photo wall | fairy light canopy] was [syn: absolutely gorgeous | breathtaking]. [syn: Every detail was handled perfectly | They set up everything exactly as requested]. [syn: The cheese fondue and brownies | The wraps and mocktails] were [syn: a huge hit | so tasty]." — [syn: Arjun] & [syn: Pooja], ${C}`,
+  `"Planned a [syn: surprise anniversary date | surprise birthday countdown] and [syn: the staff helped coordinate | the team coordinated the entry] [syn: seamlessly | with zero stress]. [syn: The music started playing | The lights went on] at [syn: the exact right moment | the perfect second]. [syn: A beautiful memory | An unforgettable night]!" — [syn: Yash] & [syn: Meera], ${C}`,
+  `"We [syn: tried other romantic cafes in Vadodara | looked at other venues] but [syn: none offer this level of privacy | the 100% private booking is unmatched]. [syn: No walk-ins, no other tables | Completely exclusive to us]. [syn: Genuinely premium experience | Highly professional setup]." — [syn: Neil] & [syn: Sneha], ${C}`,
+  `"This was [syn: our second celebration here | our third time booking Friends Factory] and [syn: they still managed to surprise us | they continue to deliver top quality]. [syn: The Glass House vibe is magical | The rooftop view is stunning]. [syn: Truly Vadodara's best couple venue | Our favorite celebration spot]." — [syn: Vivek] & [syn: Shruti], ${C}`,
+  `"The [syn: decoration team | setup crew] did [syn: an amazing job | a spectacular job] with [syn: the customized letter board | the balloon arch]. [syn: Service was quiet and respectful of our privacy | The staff was incredibly polite]. [syn: Everything was ready on time | Zero delays or issues]." — [syn: Aditya] & [syn: Tanvi], ${C}`
 ];
 
-// ==================== DIMENSION-SPECIFIC GENERATORS ====================
+// ==================== CLOSING CTAS (6 tones) ====================
 
-function generateBudgetContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-  const isLuxury = ["premium", "luxury", "high-end"].includes(ek.modifier);
-  const isBudget = ["affordable", "budget", "budget-friendly", "low-cost"].includes(ek.modifier);
+const CLOSING_CTAS = [
+  `[syn: Don't wait until the last minute! | Slots are highly limited!] [syn: Book your preferred date | Reserve your private slot] at ${V} [syn: before it gets taken | today]. WhatsApp ${PH} [syn: for instant availability updates | to lock your timing]!`,
+  `[syn: Give your partner | Surprise your loved one with] [syn: an evening they will remember forever | a magical private date]. [syn: Create an unforgettable memory | Honor your relationship] at ${V}. WhatsApp ${PH} [syn: to start planning | to secure your slot]!`,
+  `[syn: Experience luxury | Enjoy a premium celebration] [syn: at an honest price | with all-inclusive convenience]. [syn: No hidden charges, no extra taxes | Flat rates starting from ${LOW}]. WhatsApp ${PH} [syn: to book stress-free | for booking details]!`,
+  `[syn: Join over 3,000 happy couples | See why we are Vadodara's top-rated venue] who [syn: celebrated their special moments | made beautiful memories] at ${V}. [syn: Consistent 4.9★ rating on Google | Trusted celebration experts]. WhatsApp ${PH} [syn: to reserve your date | today]!`,
+  `[syn: Choose between | Select your perfect setting —] [syn: our skyline open-air rooftop or cozy Glass House | our climate-controlled Glass House or panoramic rooftop]. [syn: Elevate your date night | Make this celebration stand out]. WhatsApp ${PH} [syn: to lock in your space | now]!`,
+  `[syn: Booking is simple and fast | Lock your celebration in under 5 minutes]. [syn: Connect directly with our team on WhatsApp | Send a quick message to] ${PH}. [syn: Share your date and we handle the rest | We confirm availability instantly]!`
+];
 
-  const intro = `There is a persistent myth in the events industry that romance and affordability are opposites — that a truly beautiful ${service.name.toLowerCase()} demands enormous spending. At ${V} in ${C}, we have spent years proving this wrong. Over 3,000 couples have celebrated with us, and the most common thing they say afterward is not about how much they spent — it is about how the evening felt.
+// ==================== WHY CHOOSE US POOL (15 points) ====================
 
-${isBudget
-    ? `Our ${kwl} packages start at ${LOW} and deliver an experience most couples describe as "surreal." That word comes up again and again in our reviews. Not "decent for the price" — surreal. The reason is simple: we made deliberate architectural decisions that keep our operating costs low while channeling every rupee into what you actually see and feel during the celebration.`
-    : `Our ${kwl} packages reach ${HIGH} for the most complete version of what a private rooftop celebration can be. Every detail is elevated: complimentary celebration cake, premium floral arrangements, multiple themed photo zones, an enhanced food menu, and our signature LoveFrame photo setup that produces frames couples hang in their homes. This is what happens when price is not the constraint and every decision is made for beauty.`
-}
+const WHY_CHOOSE_US_POOL = [
+  `[syn: 100% private | Fully exclusive | Entirely private] [syn: venue | space | setting] – [syn: exclusively | privately] yours for your celebration`,
+  `[syn: Choice of 8 | Select from 8 | 8 signature] [syn: celebration | romantic | premium] packages [syn: starting from | priced from] ${LOW} [syn: to | up to] ${HIGH}`,
+  `[syn: Breathtaking | Gorgeous | Stunning] open-air rooftop [syn: city views | skyline vistas] & [syn: elegant | climate-controlled] glass house options`,
+  `[syn: All-inclusive | Fully loaded] packages – [syn: covering | including] decorations, fresh food, drinks, [syn: and custom music | and background music]`,
+  `[syn: Professional | Seamless] setup [syn: handled | managed] by our experienced team – [syn: zero stress | zero effort] for you`,
+  `[syn: Trusted | Recommended] by [syn: over 3,000 | 3,000+] ${C} couples [syn: with an exceptional | maintaining a] 4.9★ Google rating`,
+  `[syn: Centrally located | Situated] in Gotri with [syn: easy access | convenient routes] from all areas of ${C}`,
+  `[syn: Quick | Fast] WhatsApp booking at ${PH} with [syn: instant | immediate] slot confirmation`,
+  `[syn: Transparent pricing | Direct package rates] — [syn: absolutely no hidden charges | zero surprise fees at checkout]`,
+  `[syn: Flexible rescheduling | Free date changes] up to 48 hours [syn: before your booking | prior to your celebration]`,
+  `[syn: Custom decoration options | Personalized styling] including [syn: custom letter boards | customized neon signs] and balloon color schemes`,
+  `[syn: Freshly prepared | Made-to-order] multi-course meals served [syn: straight from our kitchen | hot to your table]`,
+  `[syn: Bluetooth-enabled | Dedicated sound system] to play [syn: your partner's favorite songs | your customized romantic playlist]`,
+  `[syn: Surprise-reveal coordination | Expert surprise planning] [syn: managed discreetly by our staff | handled smoothly by our team]`,
+  `[syn: Beautifully lit pathways | Magical candle-lit entries] that [syn: create an instant WOW effect | make a breathtaking first impression]`
+];
 
-Three hours of private celebration time. Zero other guests. A space decorated specifically for you by professionals who have done this thousands of times. Whether you are beginning at ${LOW} or investing in the full ${HIGH} experience, the promise is the same: you walk in to something extraordinary.`;
+// ==================== PROCESS GENERATOR ====================
 
-  const sections: FFCContentSection[] = [
-    {
-      heading: `What ${mod} Really Means for Your ${service.name}`,
-      content: isBudget
-        ? `Budget in the context of romantic celebrations is almost always misunderstood. People hear "affordable" and imagine compromise — a smaller space, simpler food, decorations that look like they came from a supply store. Our ${kwl} experience dismantles all three of those assumptions.
-
-The space is the same 4th-floor private rooftop or glass house that couples spending twice as much use. We do not partition it or reduce it. The entire venue is exclusively yours for three hours. The food is the same menu: cheese fondue, paneer tortilla, peri peri fries with mac and cheese, chocolate brownie, and our signature mocktails. There is no "budget food" option — there is just our menu, and it is included.
-
-What actually differs at the ${LOW} starting price is the complexity of the decoration theme and whether the celebration cake is included in the package price (it can be added for ₹350). The balloons, fairy lights, candles, and the general romantic ambiance? Identical across all packages.
-
-**The Promise Creative Area at ${LOW}**: Our most accessible package. A tent-style intimate setup that feels unexpectedly romantic. Couples consistently rate this experience 5 stars — not because they have low expectations, but because the venue and ambiance genuinely deliver.
-
-**Moonlit Romance at ${formatPrice(5100)}**: A step up in decoration complexity. The setup becomes more layered — more light zones, richer arrangement work, a more curated feel.
-
-**Timeless Bond Glass House at ${formatPrice(5700)}**: The glass house adds the architectural dimension of glass walls and controlled interior lighting. This changes the entire emotional texture of the celebration.
-
-The honest truth about our ${kwl} packages: most couples who book them expecting a "decent" experience end up saying they got far more than they paid for. That gap between expectation and reality is what a 4.9-star Google rating looks like in practice.`
-        : `Luxury in celebration is not about surface signals — big venues, large crowds, impressive menus posted publicly. Real ${kwl} luxury is something entirely different: control, privacy, personalization, and the sense that every element was chosen for you specifically.
-
-Our ${kwl} packages achieve this through precision. The Forever Us LoveFrame Rooftop at ${formatPrice(6900)} is designed around a specific insight: couples want their celebration to produce frames they actually keep. The LoveFrame setup creates physical photograph-worthy moments at multiple points throughout the evening. The complimentary celebration cake arrives at the perfect moment. The city of ${C} sits below the rooftop, softened by distance into something romantic.
-
-**Forever Us LoveFrame Rooftop — ${formatPrice(6900)}**: Our most complete package. Includes complimentary cake, our most elaborate decoration setup, the LoveFrame photo installation, and city rooftop views. This is the package couples choose when they want zero regrets.
-
-**Eternal Love Rooftop — ${formatPrice(6500)}**: A canopy-style setup that creates a sheltered, intimate rooftop experience. Complimentary cake included. The overhead canopy with fairy light draping creates a different ceiling experience than the open sky.
-
-**Golden Promise Glass House — ${formatPrice(6000)}**: The glass house venue with included cake and our premium decoration suite. The glass architecture means the city glow filters in from all sides — a completely unique atmospheric effect.
-
-Every ${kwl} package: 3 hours private venue, professional decoration setup, welcome drinks, full food menu, background music, and our team's dedicated service. Nothing is left out. Everything is thought through.`
-    },
-    {
-      heading: `What You Are Actually Paying For`,
-      content: `This question deserves a direct answer, because most event venues never give one.
-
-When you book a ${kwl} at ${V}, here is where your money goes:
-
-**The Venue**: We lease a dedicated space on the 4th floor of the OneWest building in Gotri. Running a private celebration venue — not a restaurant, not a shared space — has real costs: rent, utilities, facility maintenance, and the consistent standard of keeping it celebration-ready every day. This is the structural foundation that makes true privacy possible.
-
-**The Setup Team**: Our decorators spend 2-3 hours before your arrival setting up the space. Balloon inflation and arrangement, fairy light stringing, candle placement, table settings, prop installation, photo corner building. This is skilled, time-intensive labour. When you walk in and feel that the space was made for you, it is because actual hands spent hours making it so.
-
-**The Food**: Our kitchen prepares everything fresh. Cheese fondue, paneer tortilla wraps, peri peri fries with mac and cheese, chocolate brownie dessert, signature mocktails. We do not use processed or pre-packaged food. The ingredients cost real money.
-
-**The Experience Management**: During your celebration, a team member is available for food service, music management, and any needs. This quiet, professional presence without intrusion is something couples notice and appreciate.
-
-What you are not paying for: marketing overheads disguised as experience costs, large permanent venues we maintain for show, or intermediary commission structures. We keep those costs low so the budget for your ${kwl} stays in the celebration itself.
-
-The result is that our ${kwl} packages deliver more actual romantic experience per rupee than any restaurant or hotel event space in ${C} at comparable price points. This is not a marketing claim — it is why 3,000 couples have now returned, referred friends, and left the reviews that sustain our reputation.`
-    },
-    {
-      heading: `Choosing the Right Package for Your ${kw}`,
-      content: `The easiest way to decide is to ask yourself one question: what do I want my partner to feel when they walk through the door?
-
-If the answer is "completely overwhelmed in the best possible way" — choose the Forever Us LoveFrame or Eternal Love packages. These are designed for maximum visual impact.
-
-If the answer is "romantic, private, and genuinely special" — the mid-range packages (Moonlit Romance, Sweet Together, Timeless Bond) deliver precisely this. Many couples who start looking at the premium packages end up happiest with these, because the core experience is identical and the slight difference in decoration complexity matters less than they expected.
-
-If the answer is "I want to do something real without spending aggressively" — The Promise Creative Area and Pure Love Glass House at ${LOW} are genuinely good. We have had countless couples book these expecting something serviceable and leave with their best photograph of the year.
-
-Regardless of which ${kwl} package you choose, the non-negotiables remain the same: 3 hours of complete privacy, professional decoration, food, drinks, music, and a team that cares about your celebration. What changes is the depth and complexity of the visual experience.
-
-To book your ${kwl}, WhatsApp us at ${PH}. Our team will ask you a few questions — occasion, timing, any preferences — and suggest the right package. Small advance payment confirms the date. Share your personalization requests (cake message, song choices, color preferences). Arrive, and everything is waiting for you.
-
-We recommend booking at least 3-5 days ahead. Weekend evening slots — the most popular for ${kwl} — fill quickly.`
-    },
+function getProcess(slug: string, dimension: string): { step: string; description: string }[] {
+  const h = hash(slug);
+  const steps = [
+    { step: "Contact Us", description: `[syn: WhatsApp | Ping us on | Message us at] ${PH} to [syn: discuss | plan | query] your celebration details.` },
+    { step: "Pick Package", description: `[syn: Choose | Select | Pick] from our 8 [syn: unique packages | options] [syn: starting at | priced from] ${LOW} [syn: to | up to] ${HIGH}.` },
+    { step: "Confirm Date", description: `[syn: Pay a small advance | Transfer booking amount] to [syn: lock | secure | guarantee] your date and time.` },
+    { step: "Personalize", description: `[syn: Share custom requests | Submit preferences] — [syn: theme colors | balloon colors], songs, [syn: and cake messages | and cake texts].` },
+    { step: "Surprise Prep", description: `[syn: Coordinate surprise entry | Setup cover story details] with our team [syn: for a perfect reveal | to ensure surprise remains intact].` },
+    { step: "Arrive", description: `[syn: Arrive at OneWest Gotri | Take elevator to 4th floor] where your [syn: private space | decorated venue] is fully prepared.` },
+    { step: "Celebrate", description: `[syn: Enjoy 3 hours of complete privacy | Spend three exclusive hours] with [syn: dedicated service, food, and music | your partner in peace].` },
+    { step: "Capture", description: `[syn: Take beautiful photos | Capture lifetime memories] with our [syn: customized backdrops | photo-ready installations].` }
   ];
 
-  return buildResult(ek, service, intro, sections);
+  if (h % 2 === 0) {
+    if (dimension === "booking" || dimension === "howto") {
+      return [steps[0], steps[2], steps[5]];
+    }
+    return [steps[0], steps[2], steps[6]];
+  } else {
+    if (dimension === "area-service" || dimension === "area-keyword" || dimension === "nearme") {
+      return [steps[0], steps[2], steps[4], steps[5], steps[6]];
+    }
+    return [steps[0], steps[1], steps[2], steps[3], steps[6]];
+  }
 }
 
-function generateTimeContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-  const slug = ek.modifier;
-
-  const timeInfo: Record<string, { slot: string; science: string; sensorics: string; photoNote: string; tip: string }> = {
-    midnight: {
-      slot: "10:00 PM – 1:00 AM",
-      science: "The human body experiences heightened emotional sensitivity in the late-night hours. Dopamine pathways are active, the mind is released from the cognitive demands of the day, and attention narrows to the immediate present.",
-      sensorics: "The rooftop at midnight is a completely different world from the same space at 7 PM. The city quiets. The lights of Vadodara — a thousand individual glows across the skyline — become the only visual noise. The temperature drops. The air carries that particular midnight stillness that feels almost ceremonial.",
-      photoNote: "City lights against the dark sky, combined with our fairy light installations, create a depth of contrast that professional photographers specifically seek out. Your midnight celebration photos will look unlike anything shot during the day.",
-      tip: "Perfect for birthday countdown celebrations — we coordinate the exact 12:00 AM reveal with precision.",
-    },
-    morning: {
-      slot: "11:00 AM – 2:00 PM",
-      science: "Morning cortisol levels create a natural state of alertness and emotional openness. Couples celebrating in the morning report feeling more present and less distracted than during evening slots.",
-      sensorics: "The rooftop in late morning has a quality of light that photographers call 'clean' — soft, directional, without the harsh contrast of midday. The glass house in morning light glows from the inside out. The air is fresher than evening. The whole experience feels like starting something rather than ending it.",
-      photoNote: "Morning natural light is the closest to professional studio lighting that outdoor spaces ever get. Your celebration photos in this slot will be naturally beautiful without any effort.",
-      tip: "Ideal for brunch-style celebrations — the timing feels intentional, not like an afterthought.",
-    },
-    afternoon: {
-      slot: "12:00 PM – 3:00 PM",
-      science: "Afternoon provides a psychological break in the middle of the day — the celebration becomes a genuine escape from daily rhythm rather than an end-of-day event that competes with fatigue.",
-      sensorics: "The rooftop in the early afternoon has warm, saturated light. Shadows are softer than midday. From the glass house, the city stretches out in full visual detail. The afternoon has a particular quality of felt time — it moves differently than evenings, more spacious.",
-      photoNote: "Afternoon light produces warm, rich tones in photos. The colour palette of your celebration pictures will be visually richer than in cooler evening light.",
-      tip: "Great for relaxed celebrations — you have the whole evening free afterwards, which creates a different emotional texture.",
-    },
-    evening: {
-      slot: "4:00 PM – 7:00 PM",
-      science: "Evening is psychologically associated with transition — from the productive to the personal. The brain shifts from task-oriented modes toward social and emotional processing. This is why candlelight dinners have always been an evening tradition.",
-      sensorics: "Our rooftop during the evening slot captures the transition from golden afternoon light to the city switching on its lights. You arrive in warmth and leave in the soft illumination of Vadodara at night. Both states are photographically stunning in completely different ways.",
-      photoNote: "No time slot produces as much photographic variety as evening. You begin with golden hour portraits and end with fairy-light nighttime shots — two completely different aesthetics in one celebration.",
-      tip: "Our most popular slot. Book 5-7 days in advance for weekend evenings.",
-    },
-    sunset: {
-      slot: "5:00 PM – 8:00 PM",
-      science: "Golden hour — the 60-minute window as the sun approaches the horizon — produces light at a horizontal angle that softens shadows, warms skin tones, and creates a depth of field that no artificial lighting can replicate. Photographers pay for this light. You get it with your celebration.",
-      sensorics: "From our rooftop during sunset, the light changes colour every few minutes. Pale gold becomes deep amber. The buildings of Vadodara shift from bright to silhouette. If you have never watched a sunset from a high vantage point with someone you love, this slot will recalibrate what you think of as a romantic experience.",
-      photoNote: "Sunset photographs at our venue are extraordinary by default. The horizontal golden light, the city backdrop, our fairy-light decorations activating as the sun goes down — this is the combination that produces photographs couples frame and keep for years.",
-      tip: "The most romantically complete slot in our schedule. Arrive five minutes early to catch the beginning of the golden shift.",
-    },
-    "late-night": {
-      slot: "10:00 PM – 1:00 AM",
-      science: "Late-night shared experiences create stronger memory encoding than daytime ones. Sleep consolidates emotional memories more strongly than factual ones — a late-night celebration is more likely to become a vivid long-term memory than an afternoon event.",
-      sensorics: "After 10 PM, the city of ${C} settles into its quieter self. From the rooftop, what was a busy urban view becomes something more composed. The fairy lights in our decorations become the primary light source, which dramatically changes the visual experience — everything is softer, more intimate, more cinematic.",
-      photoNote: "Late-night photography has a mood that day photos cannot approximate. The contrast, the light quality, the city behind — these produce images with a different emotional register.",
-      tip: "Perfect for private, intimate celebrations. The quieter city makes the moment feel more exclusive.",
-    },
-    daytime: {
-      slot: "11:00 AM – 3:00 PM",
-      science: "Daytime celebrations have a different emotional rhythm than evening ones. There is no buildup to 'the moment' — the celebration begins immediately, fully. This creates a more spontaneous, present-focused experience.",
-      sensorics: "The venue in daylight shows its full structural beauty — the rooftop perimeter, the glass house architecture, the city detail from above. Decorations catch and reflect natural light differently than they do under artificial illumination. The whole space has a brightness that evenings cannot replicate.",
-      photoNote: "Natural daylight is the cleanest light for photography. Details in decoration, food, and couple portraits are crisp and vibrant.",
-      tip: "Daytime slots often have better availability than evenings — book with shorter notice.",
-    },
-    "early-morning": {
-      slot: "11:00 AM – 2:00 PM",
-      science: "Starting a celebration in the late morning creates the feeling of a day begun intentionally. The rest of the day carries the mood of the morning's celebration — it becomes the emotional frame for everything that follows.",
-      sensorics: "The glass house in late morning is at its most beautiful. The city is active but not overwhelming. The air is fresh. The light is clean. Everything feels newly started.",
-      photoNote: "Morning light in the glass house creates an interior glow that photographers call luminous. Your early-celebration photos will be exceptionally well-lit without any artificial augmentation.",
-      tip: "One of our most available time slots — great for couples who prefer mornings or want guaranteed date access.",
-    },
-  };
-
-  const info = timeInfo[slug] || timeInfo["evening"];
-
-  const intro = `Most people treat the timing of a celebration as logistical — what time are we free? At ${V}, we think about timing completely differently. The time of your ${kwl} is not just a scheduling decision. It is a sensory decision. It changes the quality of light, the temperature of the air, the sound of the city below, and the psychological state both of you arrive in.
-
-${info.science}
-
-Our ${kwl} slot runs from ${info.slot}, giving you 3 full hours of private celebration time. Everything you need is already in place when you arrive. The question is simply: what do you want those hours to feel like?`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `What the ${mod} Experience Actually Feels Like`,
-      content: `${info.sensorics}
-
-The decorations you see in our photos — the balloon arrangements, the fairy light configurations, the candle placement — are the same at every time slot. But they are not experienced the same way. Candles in daylight are decorative; candles at midnight are the primary light source. Fairy lights in afternoon sunshine are cheerful; fairy lights at 11 PM become something closer to stars. The same physical objects, radically different emotional impact.
-
-At ${V}, we have thought carefully about how each time slot should be prepared. Our setup team adapts the lighting balance, the candle quantity, and certain decoration elements based on the time of your booking. A ${kwl} at sunset requires different preparation than the same package at noon — and we make those adjustments automatically.
-
-Your ${service.name.toLowerCase()} in the ${mod.toLowerCase()} hours benefits from everything our venue offers, plus the particular atmosphere that time of day creates. It is an experience designed at the intersection of human biology, urban atmosphere, and intentional design.
-
-${info.photoNote}`
-    },
-    {
-      heading: `Packages Available for ${mod} ${service.name}`,
-      content: `All 8 celebration packages are bookable for ${kwl} slots:
-
-**Rooftop Options** (${mod} atmosphere amplified by elevation):
-- Forever Us LoveFrame — ${formatPrice(6900)}, includes complimentary cake. The LoveFrame photo installation with the city below and ${mod.toLowerCase()} light above is something special.
-- Eternal Love Rooftop — ${formatPrice(6500)}, includes cake. The canopy draping catches light differently at each time of day.
-- Moonlit Romance Experience — ${formatPrice(5100)}. Named for a reason — this package was specifically designed for evening and nighttime slots.
-- The Promise Creative Area — ${LOW}. Full private tent setup.
-
-**Glass House Options** (intimate, architectural, light-controlled):
-- Golden Promise — ${formatPrice(6000)}, includes cake. The glass walls transform the ${mod.toLowerCase()} light into something interior and enveloping.
-- Timeless Bond — ${formatPrice(5700)}. Classic glass house romance.
-- Sweet Together — ${formatPrice(5500)}. Cozy, personal, complete.
-- Pure Love Glass House — ${LOW}. Our most accessible glass house option.
-
-${slug === "midnight" || slug === "late-night"
-  ? "Late-night bookings are our most sought-after for birthday countdown surprises. We coordinate the exact midnight reveal — the decoration reveal, the cake moment, the music shift — with the precision of a small theatrical production."
-  : slug === "sunset" || slug === "evening"
-  ? "Evening and sunset slots fill first. If you have a specific date in mind, booking 5-7 days ahead is strongly recommended."
-  : "This time slot has better availability than our peak evening slots — same quality, less competition for dates."}
-
-Every package includes 3 hours of complete private access. Contact ${PH} to check ${mod.toLowerCase()} availability for your preferred date.`
-    },
-    {
-      heading: `Planning Your ${kw}: Practical Details`,
-      content: `Here is everything you need to know to make your ${kwl} run perfectly:
-
-**Booking**: WhatsApp ${PH} with your preferred date. Mention the occasion. Our team responds quickly — usually within minutes during business hours. If the ${mod.toLowerCase()} slot is available on your date, we'll confirm the package options immediately.
-
-**Advance Notice**: ${slug === "evening" || slug === "sunset" ? "Evening and sunset slots are our busiest. Book 5-7 days ahead for weekends, 3-4 days for weekdays." : slug === "midnight" || slug === "late-night" ? "Late-night slots are popular for birthday surprises. 3-5 days advance notice is ideal." : "This time slot typically has good availability. 2-3 days notice is usually sufficient."}
-
-**Customization**: Before your ${kwl}, share your preferences — color theme, music requests, cake message, any special props or personalized elements. We accommodate almost everything.
-
-**Arrival**: Come at your scheduled start time. The setup is complete before you arrive — our team finishes 20-30 minutes early. ${slug === "sunset" ? "Arrive promptly to catch the beginning of the golden hour — it starts at the most beautiful point of your slot." : slug === "midnight" ? "We can coordinate a precisely timed countdown if you are planning a midnight birthday reveal." : ""}
-
-**During the Celebration**: A team member is present for food service and any needs, but discreetly. Your privacy and the intimacy of your celebration are maintained throughout.
-
-The ${mod.toLowerCase()} transforms a beautiful space into a specific, unrepeatable experience. Book yours at ${PH}.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
+function getFaqGroup(dimension: KeywordDimension): string {
+  if (dimension === "budget" || dimension === "price") return "budget";
+  if (dimension === "time" || dimension === "seasonal" || dimension === "style") return "time";
+  if (dimension === "theme" || dimension === "festival") return "theme";
+  if (dimension === "milestone" || dimension === "relationship") return "milestone";
+  if (dimension === "nearme" || dimension === "area-service" || dimension === "area-keyword") return "location";
+  return "process";
 }
 
-function generateThemeContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-  const slug = ek.modifier;
-
-  const themeDetails: Record<string, { story: string; elements: string; colorStory: string; emotionalCore: string; photoStyle: string }> = {
-    "bollywood-theme": {
-      story: "Bollywood has always understood something about love that Western aesthetics often miss: that romance should be expressed with full dramatic commitment. The sweeping gestures, the emotional declarations, the sheer colour of it all — these are not exaggerations but amplifications. Our Bollywood-theme celebration takes this philosophy seriously.",
-      elements: "deep red curtains layered with gold trim, filmy props from iconic romantic scenes, rose petal pathways in vivid colours, warm amber spotlighting that mimics stage lighting, a curated playlist moving through decades of Bollywood romance — from Lata Mangeshkar to Arijit Singh",
-      colorStory: "The palette is unapologetically rich: deep crimson, warm gold, and accents of royal maroon. These are the colours of Indian cinema at its most romantic — saturated, warm, and emotionally direct.",
-      emotionalCore: "A Bollywood-theme celebration creates a specific emotional permission: to be romantic without restraint, to express in grand gestures, to treat your relationship as the central story it actually is. Couples who experience this theme consistently describe feeling 'completely swept up' in a way that a quiet dinner simply cannot produce.",
-      photoStyle: "Bollywood-theme photos have a cinematic quality — the rich colours, the dramatic lighting, the props create natural visual drama. Every frame looks like a film still.",
-    },
-    "fairy-tale": {
-      story: "There is a reason fairy tales have been told for thousands of years: they articulate something true about how love feels in its ideal state — like magic, like the rules of ordinary life are temporarily suspended, like beauty is everywhere and meant for you. Our fairy-tale theme attempts to recreate that feeling in a real space.",
-      elements: "gossamer fabric draping in pale pink and ivory, clusters of twinkling fairy lights at multiple heights creating the effect of floating stars, flower archway at the entrance, soft candles in glass holders throughout, a music selection that moves from classical romantic to modern love songs",
-      colorStory: "Soft pastel pinks, warm ivory, and gentle gold. The palette is deliberately gentle — these are colours that feel like a dreamstate, a removed-from-the-ordinary world.",
-      emotionalCore: "Walking into a fairy-tale setup produces a particular quality of feeling that is hard to describe analytically: the sense that something magical is actually happening. Couples report feeling younger, more open, more willing to be tender with each other. The environment gives emotional permission.",
-      photoStyle: "Fairy-tale theme photos have a soft, dreamy quality — the gauzy fabrics, the twinkling lights, and the floral elements combine to create images with a natural romantic glow.",
-    },
-    vintage: {
-      story: "Vintage style is not nostalgia for a specific past — it is nostalgia for a quality of attention that the past represents. Slower, more deliberate, more crafted. Objects made to last. Gestures given weight. Our vintage-theme celebration tries to recreate the feeling of a world where this moment, this evening, was worth taking time over.",
-      elements: "warm Edison filament bulbs creating a honey-golden light, antique-style frames with your photos or romantic quotes, lace textile accents, deep red and cream roses in arrangement, a soundtrack of timeless romantic songs from the 1950s through the 1980s",
-      colorStory: "Cream, warm brown, aged gold, and deep rose. These are the colours of old photographs — warm, slightly amber, soft at the edges. They create a feeling of time slowing down.",
-      emotionalCore: "Vintage-theme celebrations produce a particular quality of intimacy — slower, more lingering, less about the immediate spectacle and more about sitting with each other in a space that feels considered and unhurried. Couples describe it as 'the most present' they have felt in a long time.",
-      photoStyle: "Vintage-theme photographs have a natural warmth and depth. The Edison lighting creates a honey tone that makes skin glow. Images feel timeless rather than of-the-moment.",
-    },
-    rustic: {
-      story: "Rustic style draws on something fundamental: the beauty of natural materials, of things grown and shaped from the earth. There is an honesty to it. Wood, stone, green things — these are materials that feel real in a way that synthetic decoration simply cannot. Our rustic celebration grounds the romantic experience in something elemental.",
-      elements: "raw wood accents on table settings, fresh wildflower arrangements with herbs and greenery, burlap textile touches, soft candles in terracotta holders, cascading vines and trailing plants, acoustic romantic music with natural warmth",
-      colorStory: "Earth tones — terracotta, sage green, warm cream, and the natural browns of wood. These are colours that come from living things, and they create a space that feels connected to the natural world.",
-      emotionalCore: "Rustic celebrations have a groundedness that highly stylized themes sometimes lack. There is nothing artificial or constructed about the emotion they produce — just a warm, honest, natural romantic atmosphere that feels effortlessly real.",
-      photoStyle: "Rustic-theme photos have an editorial quality — the natural materials, the earth tones, and the soft candlelight create images that look as if they come from a thoughtfully composed lifestyle magazine.",
-    },
-    royal: {
-      story: "Royal aesthetics are fundamentally about treating an occasion as exceptional. The elaborate visual display, the rich materials, the evident expense of care — these communicate that what is happening here is important, ceremonial, set apart from ordinary life. A royal-theme celebration tells your partner: you deserve this level of tribute.",
-      elements: "rich jewel-toned fabrics in deep blue, purple and gold, crown motif props and accents, tall candelabras with multiple candles, velvet-like textiles, elaborate floral arrangements in jewel colours, regal music transitioning from orchestral to modern love songs",
-      colorStory: "Royal blue, deep burgundy, and warm gold. These are the colours of ceremony and grandeur — saturated, serious, beautiful.",
-      emotionalCore: "There is something emotionally significant about a royal-theme celebration: it communicates that your relationship deserves ceremony. The grandeur is not showing off — it is a form of tribute. Couples experience it as feeling honoured.",
-      photoStyle: "Royal-theme photos have a formal, editorial quality — rich colours, dramatic lighting, elaborate backdrops. Images feel important and ceremonial.",
-    },
-    minimalist: {
-      story: "Minimalism is the aesthetic philosophy of trust — trust that a single perfect element is more powerful than ten good ones. Our minimalist-theme celebration is the most disciplined of all our setups, and for the couples who respond to it, it is the most powerful. The simplicity is not absence but precision.",
-      elements: "single-flower stem arrangements in architectural vases, clean white candles in geometric holders, one dominant decorative element rather than many competing ones, carefully considered negative space, a music selection of modern, understated romantic songs",
-      colorStory: "White, cream, nude, and a single accent of soft gold. The restraint is intentional — every colour and every object earns its place.",
-      emotionalCore: "Minimalist celebrations produce the most focused emotional experience of any of our themes. With visual complexity reduced, attention goes fully to the person across from you. Couples describe it as 'the most connected' they felt during a celebration.",
-      photoStyle: "Minimalist-theme photos are strikingly clean — the negative space and geometric precision create images that look contemporary and intentional rather than romantic-by-formula.",
-    },
-    floral: {
-      story: "Flowers are the oldest human symbol of romantic intention — tens of thousands of years of evolutionary significance compressed into petals and fragrance. Our floral-theme celebration understands this and amplifies it: not one bouquet but a complete floral environment, where the sense of being surrounded by living beauty becomes the dominant experience.",
-      elements: "fresh flower walls in coordinated pinks and whites, hanging garlands from above that create a canopy effect, petal pathway from entrance to celebration space, fresh-cut flower centrepieces at the table, delicate floral accents in the balloon arrangement, natural floral fragrance filling the space",
-      colorStory: "Rose pink, white, soft lavender, and gentle cream. These are the colours of petals — naturally beautiful, romantic without effort.",
-      emotionalCore: "Floral environments produce a biological response — flowers trigger positive emotional associations across nearly all human cultures. In a space filled with fresh flowers, couples feel naturally lighter, more positive, more open to tenderness.",
-      photoStyle: "Floral-theme photos have an organic beauty — the living flowers, the natural textures, and the soft colours create images that feel fresh and genuinely romantic rather than staged.",
-    },
-    starlight: {
-      story: "There is something specifically romantic about the night sky — the sense of immensity, of being two small creatures together under something vast. Our starlight theme attempts to recreate the emotional experience of watching stars together in a private, decorated space where that cosmic scale becomes intimate rather than overwhelming.",
-      elements: "star-shaped fairy lights at multiple densities creating a depth effect, silver and midnight-blue colour accents throughout, constellation map prints as decoration, projection-style ambient star effects where possible, silver metallic accents in balloon and table arrangements, a music selection of ambient, cinematic romantic compositions",
-      colorStory: "Midnight navy, silver, and white. The palette of the night sky — deep and vast, with points of light.",
-      emotionalCore: "Starlight celebrations produce a particular emotional atmosphere: expansive but intimate, vast but personal. Couples describe feeling a kind of romantic vertigo — the sense that what they share is significant against something much larger.",
-      photoStyle: "Starlight-theme photos have a cinematic, otherworldly quality — the deep colours, the point-light effects, and the silver accents create images that look like stills from a romantic film shot in another world.",
-    },
-    bohemian: {
-      story: "Bohemian style is the aesthetic of genuine individualism — the refusal of a single prescribed vision of beauty in favour of something assembled, personal, and alive with its own logic. Our bohemian-theme celebration is our most eclectic, and for the right couples, it is their most personally resonant experience.",
-      elements: "macramé wall hangings in natural fibres, mixed textile throws and cushions in terracotta, mustard, and sage, eclectic candle arrangements in mismatched holders, dreamcatcher accents, trailing plants and dried flower arrangements, warm acoustic music with a folk-romantic quality",
-      colorStory: "Terracotta, mustard yellow, sage green, and natural cream. These are the colours of a world made by hand — warm, earthy, and deliberately imperfect.",
-      emotionalCore: "Bohemian celebrations attract couples who have a specific kind of relationship: one built on shared taste, personal expression, and a rejection of the formulaic. The theme honours that relationship identity.",
-      photoStyle: "Bohemian-theme photos have a warm, textured quality — the natural materials, the eclectic objects, and the earth-tone palette create images that feel personal and lived-in.",
-    },
-    "classic-romantic": {
-      story: "Some aesthetic expressions become classic because they are right — not fashionable, not of-the-moment, but fundamentally correct in their understanding of what love looks and feels like. Red roses, candlelight, soft music — these are not clichés. They are archetypes. Our classic-romantic theme honours the tradition because the tradition works.",
-      elements: "deep red roses throughout — in arrangement, scattered as petals on the table, and in a dedicated centrepiece, white and red candles in graduated heights, heart-shaped balloon elements, a playlist built from decades of universally recognised romantic songs, the signature red-rose-petal pathway from the door",
-      colorStory: "Classic red, pure white, and deep pink. These are the colours of romance as understood across all cultures — warm, declarative, and emotionally unambiguous.",
-      emotionalCore: "Classic-romantic celebrations work because they communicate directly, without irony or interpretation required. The partner walking in understands immediately what they are being told.",
-      photoStyle: "Classic-romantic theme photos are timeless — the reds and whites, the candlelight, the roses create images that look romantic regardless of when they were taken.",
-    },
-    "modern-chic": {
-      story: "Modern-chic style applies contemporary aesthetic intelligence to romantic occasions — geometric precision, high-contrast colour work, and a deliberate sense of cool that somehow produces warmth when you are inside it. Our modern-chic theme is for couples who want their celebration to feel designed rather than decorated.",
-      elements: "geometric paper or metallic sculpture accents, black and gold colour blocking in balloon arrangements, LED acrylic elements, sleek table settings with clean lines, modern love song soundtrack curated for contemporary romantic sensibility",
-      colorStory: "Black, warm gold, and pure white. The most architecturally confident colour palette — high contrast, graphic, intentional.",
-      emotionalCore: "Modern-chic celebrations appeal to couples who find maximalist romance slightly embarrassing but want to genuinely celebrate. The aesthetic creates a kind of emotional shelter — the sophistication makes the romance feel safe rather than over-exposed.",
-      photoStyle: "Modern-chic photos look editorial — the graphic palette, the clean geometry, and the high-contrast elements create images with a contemporary fashion magazine quality.",
-    },
-    dreamy: {
-      story: "Some of the most powerful romantic experiences happen in states of gentle unreality — when the surroundings have a quality that makes you feel like you might be dreaming. Our dreamy theme deliberately creates this edge. Not surreal, not hallucinatory — just slightly lifted from the ordinary. Softer. More luminous. More possible.",
-      elements: "sheer white and pale lavender fabric draping at multiple heights creating a layered, atmospheric effect, cloud-like balloon clusters with soft whites and blues, bubble machine effects, diffused ambient lighting that fills the space with even, gentle illumination, a music selection of ethereal romantic compositions",
-      colorStory: "Soft blue, white, pale lilac, and the faintest blush pink. A palette that feels inhaled rather than seen — light, cool, and gently suspended.",
-      emotionalCore: "The dreamy theme produces the most unusual emotional experience of our offerings — a quality of suspended reality where the celebration feels continuous with imagination. Couples describe it as the setting in which they felt the most freely affectionate.",
-      photoStyle: "Dreamy-theme photos have a luminous, other-worldly quality — the diffused lighting, the sheer fabrics, and the pale palette create images that look visually unlike anything else we produce.",
-    },
-    "garden-theme": {
-      story: "Gardens have been the setting for romantic encounters across all of human history — the combination of living beauty, natural fragrance, and the sense of a protected, cultivated space separate from the ordinary world. Our garden theme brings that experience indoors, into a rooftop celebration space that feels like a private garden party for two.",
-      elements: "potted plants and trailing vines throughout the space, a green-and-white flower wall as the centrepiece backdrop, wooden accents and natural textiles, scattered flower arrangements in terracotta and ceramic, soft butterfly and nature accents, a music selection of acoustic, natural-world-inspired romantic songs",
-      colorStory: "Soft green, white, and gentle pinks — the colours of a garden in bloom. Fresh, natural, and living.",
-      emotionalCore: "Garden-theme celebrations produce a sense of sanctuary — a protected natural space created specifically for this celebration. The living plants and fresh flowers add a biological component to the romantic atmosphere that purely decorative elements cannot.",
-      photoStyle: "Garden-theme photos have a fresh, natural quality — the greens, the botanicals, and the outdoor-inside aesthetic create images that feel genuinely refreshing.",
-    },
-    "white-theme": {
-      story: "All-white is the most demanding aesthetic choice — there is nowhere to hide. With no colour to distract, every element must justify its presence. The result, when done correctly, is a kind of visual purity that no colour palette can achieve. Our white-theme celebration is our most architecturally precise setup, and for the couples it suits, it is unforgettable.",
-      elements: "white flower arrangements — roses, carnations, and greenery — throughout the space, white candles in crystal and frosted glass holders, ivory and pearl balloon arrangements, white gossamer fabric draping, soft white lighting that fills the space evenly, pearl and cream accent details",
-      colorStory: "White, cream, ivory, and the softest champagne gold. A single-note palette that rewards attention — every shade of white is slightly different, and the composition creates depth from restraint.",
-      emotionalCore: "White-theme celebrations produce a feeling of clarity and purity — emotionally, not just visually. The absence of colour noise creates space for genuine feeling. Couples describe it as the most emotionally honest setting they have celebrated in.",
-      photoStyle: "White-theme photos have a pristine, high-fashion quality — the monochromatic palette and the texture variation between different white elements create images with visual sophistication.",
-    },
-    "neon-theme": {
-      story: "Neon is the aesthetic of genuine celebration energy — it does not suggest romance cautiously or imply it subtly. It announces. For couples whose relationship has a particular quality of joy, aliveness, and expressed enthusiasm, neon-theme is the celebration environment that actually matches who they are together.",
-      elements: "electric pink and deep blue neon lights, UV-reactive elements that respond to blacklight, bright LED strips in the balloon arrangement, glow accessories as welcome gifts, an energetic playlist of danceable love songs",
-      colorStory: "Neon pink, electric blue, and vivid green. The palette of electricity and urban nightlife — impossibly bright, unmistakable, alive.",
-      emotionalCore: "Neon-theme celebrations produce the most energetic emotional experience of any of our offerings. They are for couples who love each other loudly — who do not want to whisper their celebration but shout it.",
-      photoStyle: "Neon-theme photos look unlike anything else we produce — vivid, electric, and full of colour energy that photographs retain completely.",
-    },
-  };
-
-  const td = themeDetails[slug] || themeDetails["classic-romantic"];
-
-  const intro = `${td.story}
-
-At ${V} in ${C}, our ${kwl} packages start from ${LOW} and include the complete theme setup — not a gesture toward the theme but a genuine immersion in it. Our decoration team builds the full environment before your arrival: ${td.elements}. You walk in to a space that has been considered in every detail for the next three hours of your celebration.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `The ${mod} Decoration: Every Element Considered`,
-      content: `Our ${mod.toLowerCase()} setup is built around three principles: coherence, depth, and photographic intelligence.
-
-**Coherence**: Every decoration element serves the theme. Nothing is present because it was available or because it looks generally romantic — each piece either contributes to the ${mod.toLowerCase()} aesthetic or it is not there.
-
-**Colour Story**: ${td.colorStory} This is not background design — it is the primary emotional architecture of your celebration. The colour environment is the first thing your partner processes when they walk in, and it sets the emotional tone for the entire evening.
-
-**Depth**: The ${mod.toLowerCase()} setup uses multiple spatial layers — above (ceiling/draping elements), mid-height (balloon arrangements, fabric accents), and ground level (petals, candles, table setting). This three-dimensional construction makes the theme feel immersive rather than applied.
-
-**Photographic Intelligence**: ${td.photoStyle} Every ${mod.toLowerCase()} setup includes at least three dedicated photo zones with different visual backdrops, allowing variety in your celebration photography.
-
-**Personal Touches**: The ${mod.toLowerCase()} is the base — we build on it with your specifics. Custom elements include your names in decoration (on letter boards, framed prints, or embedded in balloon arrangements), your chosen colour accents within the palette, and any personal props you want incorporated.
-
-The setup takes our team 2-3 hours to complete. By the time you arrive, the space is fully realized.`
-    },
-    {
-      heading: `Packages for Your ${mod} ${service.name}`,
-      content: `Every package can be configured for the ${mod.toLowerCase()} theme:
-
-**Forever Us LoveFrame Rooftop — ${formatPrice(6900)}**: The LoveFrame photo installation works beautifully against the ${mod.toLowerCase()} backdrop. Complimentary cake. Our most complete celebration. The elevated rooftop adds a spatial dimension to the ${mod.toLowerCase()} that glass house packages cannot replicate.
-
-**Eternal Love Rooftop — ${formatPrice(6500)}**: The canopy draping style of this package is especially compatible with themes that have strong overhead elements (fairy-tale, dreamy, bohemian). Complimentary cake included.
-
-**Golden Promise Glass House — ${formatPrice(6000)}**: The glass house architecture adds a structural dimension to the ${mod.toLowerCase()} aesthetic — the walls become part of the decoration canvas. Complimentary cake included.
-
-**Mid-Range Options — ${formatPrice(5100)} to ${formatPrice(5700)}**: Complete ${mod.toLowerCase()} setup with slightly less complex decoration layering. The theme is fully present — these packages simply have fewer simultaneous elements.
-
-**Starting at ${LOW}**: The ${mod.toLowerCase()} theme is applied to our foundational package. The core elements of the aesthetic are present; the setup is simpler but the theme is genuine.
-
-All packages: 3 hours private venue, full themed decoration, welcome drinks, food menu, background music, dedicated team service.`
-    },
-    {
-      heading: `The Emotional Impact of ${mod}`,
-      content: `${td.emotionalCore}
-
-What this means practically for your ${kwl}: the theme is doing emotional work throughout the celebration. It is not merely decoration — it is the environment in which your celebration happens, and that environment shapes what you feel.
-
-Couples who book ${kwl} experiences report specific emotional characteristics that distinguish them from standard celebrations. The most common is the element of genuine surprise even when the person knows a celebration is planned — the specific theme creates an experience that imagination cannot fully anticipate. Walking in is different from being told about it.
-
-Our recommendation: tell us which theme appeals to you, but do not tell your partner. Even if they know they are being taken to ${V} for a celebration, the theme itself should be the reveal. We can help you coordinate this — including keeping the theme secret on our end if they contact us to ask.
-
-To book your ${kwl}, WhatsApp ${PH}. Share the occasion, your preferred date, and that you would like the ${mod.toLowerCase()} theme. Our team will confirm availability and walk you through the personalization options available within that theme.
-
-We recommend booking at least 4-5 days ahead. Theme setups require specific materials that we sometimes need to source, and early notice ensures we can execute the ${mod.toLowerCase()} fully.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateFestivalContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-
-  const festivalContext: Record<string, { why: string; cultural: string; timing: string; specific: string }> = {
-    valentine: {
-      why: "Valentine's Day is globally understood — both people know what it means and what it asks of them. There is no ambiguity in a Valentine's celebration. This directness is its particular gift.",
-      cultural: "In Vadodara, Valentine's week has become a genuine cultural event — not imported inauthentically but absorbed into local romantic culture in a way that feels natural. Couples celebrate it because it gives permission and occasion to express what is always true.",
-      timing: "Book 2-3 weeks in advance for February 14 slots. We are typically fully booked 10 days before. The week itself (February 7-14) fills nearly as fast.",
-      specific: "We add specific Valentine elements to the base celebration setup: rose-specific arrangements, deep red colour accenting throughout, heart-motif elements, and a playlist built specifically for Valentine's week.",
-    },
-    diwali: {
-      why: "Diwali is the festival of light — and romantic celebration by candlelight on Diwali night has a symbolic resonance that other festival dates cannot match. The festival of light is the ideal context for celebrating the light someone brings into your life.",
-      cultural: "Diwali in Vadodara has a particular quality — the entire city participates, which creates an ambient celebratory atmosphere that any private celebration can draw on. Walking out after your celebration into a city of lights extends the evening.",
-      timing: "Diwali slots book very early — begin planning 3-4 weeks ahead. The specific night of Diwali is our single most-booked date each year.",
-      specific: "Diwali setups incorporate diyas alongside our standard candle arrangements, gold and orange colour accents reflecting the festival palette, and the particular warmth of Diwali lighting.",
-    },
-    holi: {
-      why: "Holi celebrates colour and the joy of expression — a celebration of love on Holi day has an inherent symbolism about the vibrancy of what you share together.",
-      cultural: "Post-Holi evening celebrations have become a tradition for many Vadodara couples — wash the colours off, dress up, and spend the evening together in a private setting that matches the joy of the day.",
-      timing: "Holi evening and the night before (Holika Dahan) are both popular. Book one week ahead minimum.",
-      specific: "Holi-themed setups use the festival's palette — vibrant pinks, yellows, greens, and blues — in balloon and decoration arrangements while maintaining elegance.",
-    },
-    eid: {
-      why: "Eid is fundamentally a celebration of gratitude and togetherness — celebrating love on Eid connects the personal with the spiritual context of the day.",
-      cultural: "Eid celebrations in Vadodara carry a particular warmth. Celebrating with your partner after Eid festivities as a private continuation of the day's joy has become increasingly popular.",
-      timing: "Eid dates vary each year. Contact us 2 weeks before your expected Eid date. We accommodate the celebratory spirit of the day in our setup.",
-      specific: "Eid celebration setups incorporate crescent and star motifs as decoration accents, warm golden lighting, and a menu that complements the celebratory mood of the day.",
-    },
-    christmas: {
-      why: "Christmas has a particular aesthetic warmth that translates naturally to romantic celebration — the fairy lights, the rich reds and greens, the sense of being inside a warm space while the world outside is festive.",
-      cultural: "Christmas in Vadodara is increasingly celebrated across communities as a cultural festival. Christmas Eve particularly has become a popular date for special celebrations.",
-      timing: "December 24-25 slots book fully 2-3 weeks in advance. The broader December holiday season is consistently our busiest period.",
-      specific: "Christmas setups incorporate garland and pine accents, deep red and green colour palette alongside our signature arrangements, warm amber lighting that matches the seasonal aesthetic.",
-    },
-    "new-year": {
-      why: "New Year's Eve is a culturally mandated pause for reflection — and celebrating it with your partner, doing a personal review of your year together and setting intentions for the next, is among the most meaningful uses of that pause.",
-      cultural: "New Year's Eve in Vadodara has grown significantly as a private celebration occasion. Rather than crowded public events, many couples now choose private celebrations where they can actually hear each other and be present.",
-      timing: "December 31 is our single most-requested date. Book minimum 3-4 weeks ahead. We strongly suggest the Dinner (7-10 PM) slot to allow for midnight plans afterward.",
-      specific: "New Year setups incorporate countdown elements — a clock decoration, champagne-style props, and golden balloon arrangements that feel celebratory and forward-looking.",
-    },
-    "karva-chauth": {
-      why: "Karva Chauth is among the most emotionally charged days in the Hindu calendar for married couples — the day's fasting and the significance of what it represents make the evening celebration profoundly meaningful.",
-      cultural: "Celebrating Karva Chauth at a private venue — rather than the traditional family gathering — has become a way for couples to add a personal, private dimension to the festival. The moonrise moment and the breaking of fast in a beautifully decorated private space carries its own significance.",
-      timing: "Karva Chauth slots book very fast once the date is announced. Contact us immediately when the date is confirmed in the lunar calendar.",
-      specific: "Karva Chauth setups incorporate traditional elements — diyas, marigold accents — alongside our romantic decoration package, creating a setup that honours the tradition while adding private romantic celebration.",
-    },
-    "raksha-bandhan": {
-      why: "While Raksha Bandhan is primarily a sibling festival, it is also a day that many couples use to celebrate the protective, caring dimensions of their relationship alongside the romantic.",
-      cultural: "Celebratory mood of Raksha Bandhan day extends naturally into evening private celebrations for couples.",
-      timing: "Book 1-2 weeks ahead for Raksha Bandhan date.",
-      specific: "Standard romantic setup with festive colour additions appropriate to the day.",
-    },
-  };
-
-  const fc = festivalContext[ek.modifier] || {
-    why: `${mod} creates a specific cultural context for romantic celebration — the festival marks time in a way that makes celebration feel appropriate and significant.`,
-    cultural: `${mod} in Vadodara is celebrated with genuine enthusiasm, and private romantic celebrations on festival days have become increasingly popular.`,
-    timing: "Book at least 1-2 weeks before the festival date. Festival slots fill quickly.",
-    specific: "We incorporate festival-appropriate decoration elements into our standard romantic setup.",
-  };
-
-  const intro = `Festivals mark time differently from ordinary days. When a cultural occasion designates a specific moment as significant, romantic celebration during that moment takes on additional resonance — the festival's cultural weight amplifies what you are expressing privately. A ${kwl} at ${V} draws on both dimensions: the meaning of ${mod} and the meaning of what you are celebrating together.
-
-At ${V}, we understand ${mod} as more than a calendar date. ${fc.why} Our ${kwl} packages, starting from ${LOW}, are designed to honour both the festival and your relationship — creating a private celebration that is simultaneously part of ${mod} and entirely your own.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `The Cultural Context: Why ${mod} Makes This Celebration Different`,
-      content: `${fc.cultural}
-
-${fc.specific}
-
-The festival context changes the emotional stakes of a celebration. When the wider culture is also marking the same moment — even differently, even from the outside — your private celebration feels connected to something larger. The ${kwl} becomes simultaneously deeply personal and culturally situated.
-
-**What We Add for ${mod}**:
-Beyond our standard celebration setup, ${mod} celebrations include festival-appropriate decoration accents that signal the occasion without overwhelming the romantic atmosphere. The balance we strike is intentional: the festival present but not dominating, the romance at the centre.
-
-**The Music Dimension**: Our ${mod} playlists are curated specifically for the festival context — drawing on the emotional associations and sonic culture of ${mod} while maintaining the romantic thread. Music that bridges festival joy and private romantic feeling.
-
-**Menu Considerations**: For certain festivals, we incorporate traditional food elements or festival-appropriate flavours where they naturally complement the celebration menu. Ask when booking if there are specific food preferences relevant to your celebration.`
-    },
-    {
-      heading: `Packages for Your ${kwl}`,
-      content: `All eight packages are available for ${kwl}, with festival decoration elements added to every tier:
-
-**Forever Us LoveFrame Rooftop — ${formatPrice(6900)}**: Our most complete offering. The rooftop setting adds a natural element to festival celebrations — open air, city sounds, festive atmosphere outside. Complimentary cake included. The LoveFrame photo installation creates a dedicated memory of your ${mod} celebration.
-
-**Eternal Love Rooftop — ${formatPrice(6500)}**: The canopy setup of this package works especially well with festival celebrations — it creates a sense of a private pavilion within the festival atmosphere. Complimentary cake.
-
-**Golden Promise Glass House — ${formatPrice(6000)}**: The glass house creates a sense of intimate shelter — a private world distinct from the festival outside. Complimentary cake.
-
-**Mid-Range Packages — ${formatPrice(5100)} to ${formatPrice(5700)}**: Complete ${mod} celebration setup with the festival decoration elements. The experience is genuinely special; the setup has slightly fewer simultaneous elements than premium packages.
-
-**Starting from ${LOW}**: Festival-appropriate decoration additions at every price point. The ${mod} context is present even in our most accessible offering.
-
-All packages: 3 hours private venue, complete decoration with festival elements, welcome drinks, food menu, festival-appropriate music, dedicated service team.
-
-**Booking Note**: ${fc.timing}`
-    },
-    {
-      heading: `Planning Your ${kwl}: What to Know`,
-      content: `**Timing**: ${fc.timing} WhatsApp ${PH} as soon as you have your date confirmed.
-
-**Personalization for ${mod}**: Tell us if there are specific elements of ${mod} that have personal significance for your relationship — a song you both associate with the festival, a tradition you share, a colour that is particularly meaningful. We build these into the celebration.
-
-**Surprise Element**: If you are planning a surprise ${kwl}, share this when booking. We coordinate the reveal — including keeping the celebration details from your partner if they contact us independently.
-
-**Gift Additions**: ${mod} celebrations often benefit from an additional gift element — a framed photo from a meaningful moment, a small item that references an inside moment in your relationship, or a simple but thoughtful object. We can incorporate these or suggest options.
-
-**The Post-Celebration Plan**: Consider what comes after the three hours — particularly for festivals where there is a natural continuation. Diwali evenings, New Year nights, and Holi mornings all have natural post-celebration flows. Plan ahead.
-
-A ${kwl} at ${V} is a celebration that exists on two timelines simultaneously: the personal timeline of your relationship and the cultural timeline of ${mod}. In years to come, every time the festival arrives, you will remember this night. That is the particular gift of festival-timed romantic celebration.
-
-To book: WhatsApp ${PH} with your ${mod} date preference and the occasion you are celebrating.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateMilestoneContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-
-  const milestoneContext: Record<string, { psychology: string; what: string; howLong: string; ritual: string }> = {
-    "1st-anniversary": {
-      psychology: "The first anniversary carries the particular weight of proof — proof that what began as hope and intention has now become history. One year is long enough to have been tested and short enough to still feel like the beginning.",
-      what: "One year means you have navigated at least one complete seasonal cycle together, one complete round of family events, one year of ordinary days that you chose to keep choosing each other through.",
-      howLong: "1 year",
-      ritual: "Many couples use the first anniversary to reflect on what the first year revealed — what they learned about each other that they could not have predicted. Writing these down together during the celebration creates a document to read at subsequent anniversaries.",
-    },
-    "5th-anniversary": {
-      psychology: "Five years represents the passage through the early-relationship phase and into something more settled, more known, more honestly itself. The five-year mark often coincides with deepened trust and the particular comfort of being genuinely known.",
-      what: "Five years together means shared experiences that only the two of you fully understand — private references, weathered difficulties, accumulated joy.",
-      howLong: "5 years",
-      ritual: "The five-year point is a natural moment for intention-setting — for articulating where you want to be at the ten-year mark. Many couples write letters to their future selves at this milestone.",
-    },
-    "10th-anniversary": {
-      psychology: "A decade together is significant in a way that smaller milestones cannot claim. Ten years represents a relationship that has been chosen consistently, repeatedly, through significant life changes on both sides.",
-      what: "Ten years likely includes major life transitions — career changes, family changes, home changes, loss, growth. The relationship that survives and deepens through all of that is something genuinely remarkable.",
-      howLong: "10 years",
-      ritual: "The tenth anniversary traditionally calls for renewal — of vows, of intention, of explicit acknowledgment. Many couples create a new symbolic gesture at this milestone: a new piece of jewellery, a joint experience, a shared commitment.",
-    },
-    "25th-anniversary": {
-      psychology: "The silver anniversary marks a relationship that has become a life — not an episode in a life, but the central fact of a life. Twenty-five years together means you have grown into your adult selves together.",
-      what: "A quarter century of shared history, shared decisions, shared ordinary days and extraordinary ones. The twenty-fifth anniversary deserves a celebration of corresponding weight.",
-      howLong: "25 years",
-      ritual: "Many couples at this milestone choose to do something genuinely new together — a trip, an experience, a shared project. The celebration is about both honouring what has been and moving toward what is next.",
-    },
-    "50th-anniversary": {
-      psychology: "Fifty years is a testament of a kind that few relationships achieve. The golden anniversary marks love that has been chosen across an entire adult life — through every major human experience, through enormous change, through loss and joy in quantities that younger relationships have not yet encountered.",
-      what: "Half a century together is simply extraordinary. Every day of those fifty years was a choice, and the accumulation of those choices is something deserving of the deepest celebration.",
-      howLong: "50 years",
-      ritual: "The golden anniversary often involves the extended family and community who have witnessed the relationship. But the private, intimate celebration — just the two of you — has its own irreplaceable quality.",
-    },
-    "100-days": {
-      psychology: "One hundred days is not traditional in Western cultures, but it has roots in Korean celebration culture (baek-il) and resonates for couples who want to mark the early stages of a relationship with intentionality.",
-      what: "One hundred days represents the passage from the initial intensity of new love into something with actual roots — the first extended period of genuinely knowing each other.",
-      howLong: "100 days",
-      ritual: "The 100-day milestone is a particularly good occasion for documenting the early relationship — photos, objects, notes from the first weeks. Creating a small archive of the beginning.",
-    },
-    "1-month": {
-      psychology: "The one-month mark in a relationship is when initial intensity begins to settle into something more sustainable. It is the first look ahead — the first moment when a future together becomes a genuine thought rather than a hope.",
-      what: "One month is early, which is precisely what makes celebrating it meaningful. It is an act of intention — choosing to mark the beginning because you already understand that this matters.",
-      howLong: "1 month",
-      ritual: "First-month celebrations often have an element of lightness and newness — the celebration itself feels like the beginning of a tradition rather than a continuation of one.",
-    },
-  };
-
-  const mc = milestoneContext[ek.modifier] || {
-    psychology: `The ${mod.toLowerCase()} milestone represents a meaningful marker in your relationship — a moment worth pausing to honour before continuing forward.`,
-    what: `Milestones structure time in relationships, providing defined moments to reflect on the journey and set intentions for what comes next.`,
-    howLong: mod.toLowerCase(),
-    ritual: "Celebration rituals at milestones create emotional anchors — memories that define the relationship's internal calendar.",
-  };
-
-  const intro = `Milestones are how relationships know themselves. Without them, time passes undifferentiated, and the accumulated weight of a shared journey goes unacknowledged. A ${kwl} at ${V} is not just a celebration — it is an act of recognition. You are saying: this point in our story matters enough to mark.\n\n${mc.psychology}\n\nOur ${kwl} packages, starting from ${LOW}, create a private, beautifully decorated space for this recognition — three hours at a dedicated private venue, entirely yours, designed for the occasion.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `What ${mc.howLong} Together Actually Means`,
-      content: `${mc.what}\n\nThe significance of a milestone is not really about the number. It is about what that number represents in terms of shared experience, shared difficulty, shared ordinary days. The ${mod.toLowerCase()} is meaningful because of everything that happened during it — not just because of its position on a calendar.\n\nOur ${kwl} setup recognises this. We create a space that invites reflection as much as celebration. Couples who celebrate at ${V} frequently describe the experience as the most present and connected they have felt in some time — the private space, the designed environment, and the explicit marking of the milestone work together to create genuine emotional depth.\n\n**What We Recommend Adding**: A display element that references your actual story \u2014 a photo from a meaningful moment in the period being celebrated, a printed message that specifically references your ${mod.toLowerCase()}, a custom cake message that uses the specific number. These particulars are what transform a celebration from a generic romantic evening into an actual milestone commemoration.\n\n**The Ritual Dimension**: ${mc.ritual} We can incorporate these ritual elements into the physical setup of your ${kwl} \u2014 space for writing, display elements for letters or objects, a dedicated moment within the celebration structure for this.`
-    },
-    {
-      heading: `Packages for Your ${kwl}`,
-      content: `**Forever Us LoveFrame Rooftop \u2014 ${formatPrice(6900)}**: The LoveFrame photo installation is particularly well-suited to milestone celebrations \u2014 it creates a framed visual record of the milestone moment itself. Complimentary cake with custom message. Our most complete package, with the open rooftop adding a spatial grandeur appropriate to significant milestones.\n\n**Eternal Love Rooftop \u2014 ${formatPrice(6500)}**: The canopy setup creates a sense of a private pavilion \u2014 a sheltered, intimate space that feels made for two people marking something significant. Complimentary cake.\n\n**Golden Promise Glass House \u2014 ${formatPrice(6000)}**: The glass house architecture creates a distinctive celebration environment \u2014 enclosed and intimate, with the walls as a canvas for milestone-specific decoration. Complimentary cake.\n\n**Timeless Bond Glass House \u2014 ${formatPrice(5700)}**: For milestones where the intimate, just-us feeling matters more than elaborate setup. The timeless quality of the name suits anniversary celebrations specifically.\n\n**Pure Love / The Promise \u2014 From ${LOW}**: Because no milestone should go unmarked due to budget. The full celebration experience at our most accessible price point.\n\nAll packages: 3 hours private venue, full decoration setup, milestone-specific personalisation, welcome drinks, food menu, romantic music, service team.`
-    },
-    {
-      heading: `Planning Your ${kwl}: Practical Details`,
-      content: `**Booking Timing**: We recommend booking 4-5 days ahead for most ${kwl} dates. For significant milestones (10th, 25th, 50th anniversary, and Valentine's Day anniversaries), book 1-2 weeks ahead.\n\n**Personalisation Request**: When you WhatsApp ${PH} to book, share the specific milestone you are celebrating and any personal details you want incorporated. The more specific you are, the more the setup can reference your actual story.\n\n**Surprise Planning**: If this is a surprise for your partner, tell us during booking. We have extensive experience coordinating the logistics of surprise milestone celebrations \u2014 including the cover story, the arrival timing, and the reveal.\n\n**Time Slot**: For milestone celebrations, the Dinner slot (7-10 PM) is our most popular \u2014 the evening quality of the light and the natural end-of-day reflective mood suit the occasion. Late Night (10 PM-1 AM) is increasingly popular for anniversaries.\n\n**After the Celebration**: Consider having a plan for after your three hours \u2014 a walk, a place you associate with your relationship, or simply a route home through the city you have spent ${mc.howLong} in together.\n\nA ${kwl} at ${V} is a declaration: this milestone, this person, this relationship \u2014 worth celebrating. WhatsApp ${PH} to begin planning.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateVenueContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-  const slug = ek.modifier;
-
-  const venueInfo: Record<string, { sensory: string; architecture: string; photography: string; weather: string; intimacy: string }> = {
-    "glass-house": {
-      sensory: "The glass house is a sensory experience before it is a decoration experience. The walls create a particular quality of light — refracted, layered, everywhere at once — that no conventional interior can replicate. Candles inside a glass-walled space multiply, their reflections creating a depth effect that feels inexhaustible.",
-      architecture: "Floor-to-ceiling glass walls on multiple sides create the effect of being simultaneously enclosed and boundless. You have complete privacy — no one can access the space — while the transparent walls create a visual openness that prevents any feeling of confinement.",
-      photography: "Glass house photos have a distinctive quality — the multiple light sources, the reflections in the walls, and the light-filled environment create images with extraordinary depth. Every photo looks like it was taken with professional lighting because the architecture itself provides it.",
-      weather: "The glass house is the ideal choice for Vadodara's monsoon season — rain against the glass creates a dramatic backdrop that increases romantic atmosphere rather than disrupting it. Climate-controlled comfort year-round.",
-      intimacy: "The glass house creates the highest level of intimacy of any space in our venue. The enclosure is complete and private, the visual environment is concentrated and intense, and the couple becomes the undisputed centre of the space.",
-    },
-    "open-air": {
-      sensory: "The open-air rooftop experience is sensory in a way that enclosed spaces cannot match — you feel the temperature of the air, hear the ambient sounds of the city from above, and experience the actual sky as part of your celebration. These are real, unmediated sensory experiences that create a specific kind of presence.",
-      architecture: "The rooftop is a horizontal expanse rather than an enclosed volume — your visual field extends to the horizon in multiple directions. The city below, the sky above, and your private decorated space in between. This spatial arrangement creates a feeling of elevation and perspective.",
-      photography: "Open-air rooftop photos have the most dramatic natural backdrops of any of our spaces — the city skyline, the sky at different times of day, the ambient light that changes from golden hour through dusk into the fairy-light-and-star phase of night.",
-      weather: "The open-air rooftop is ideal in Vadodara's winter and clear monsoon evenings. The pre-monsoon late evenings offer warm air, clear skies, and stunning visibility. The cooler winter nights with clear skies and fairy lights is a particularly compelling combination.",
-      intimacy: "Paradoxically, the open rooftop creates a particular kind of intimacy — the elevation separates you from ordinary life below, and the expanse of the sky creates a sense of being uniquely alone together in a wide world.",
-    },
-    terrace: {
-      sensory: "The terrace setting combines the sensory openness of outdoor space with the more defined boundaries of a dedicated celebration zone. You have the air and the sky while the terrace itself provides a sense of a room — a defined space within the openness.",
-      architecture: "The terrace occupies the architectural middle ground between fully enclosed and fully open — bounded but not enclosed, defined but not confined. This balance suits celebrations that want both open-air atmosphere and a sense of a dedicated, designed space.",
-      photography: "Terrace photos benefit from both the natural backdrop of sky and city views and the more defined spatial frame of the terrace boundaries — photos have both depth and composition.",
-      weather: "The terrace works across most weather conditions in Vadodara. A partial overhead element provides some shelter while maintaining the open-air quality.",
-      intimacy: "The defined boundaries of the terrace create a sense of a room without walls — private and designed while remaining connected to the outdoor atmosphere.",
-    },
-    "sky-lounge": {
-      sensory: "The sky lounge experience is about elevation — being above the ordinary level of the city creates a specific quality of perspective and freedom. Looking down on the familiar city while celebrating together produces a feeling of being momentarily liberated from ordinary constraints.",
-      architecture: "The highest point of the venue, the sky lounge creates the most dramatic spatial relationship with the surrounding city. The elevation is the primary architectural experience.",
-      photography: "Sky lounge photos have the most dramatic city backdrop — the elevation creates separation between the subjects and the cityscape that ground-level and standard rooftop shots cannot replicate.",
-      weather: "The sky lounge is at its most spectacular on clear nights — the sky is the primary experience, and clarity matters. Vadodara's winter and post-monsoon skies are ideal.",
-      intimacy: "The elevated, exclusive quality of the sky lounge creates a sense of special access — as if you have been given a private key to a space not accessible to everyone.",
-    },
-    "private-cabin": {
-      sensory: "The private cabin is the most deliberately enclosed and sheltered of our spaces — a specifically constructed intimate environment. The walls, the ceiling, and the controlled light create a self-contained world.",
-      architecture: "The cabin's architecture is intentional enclosure — a defined, specific space that exists entirely for your celebration. Nothing bleeds in from outside; the space is completely controlled.",
-      photography: "Private cabin photos have an intimate, warm quality — the controlled light and enclosed space create an interior world that photographs with exceptional warmth and depth.",
-      weather: "Weather-independent by design. The private cabin delivers the same experience regardless of external conditions.",
-      intimacy: "The highest possible intimacy setting. The cabin is built for two people and for nothing else — the entire space is oriented toward your celebration.",
-    },
-    indoor: {
-      sensory: "The indoor venue delivers precision of atmosphere — every sensory element is controllable, from temperature to lighting to sound. The result is a celebration environment with no accidental components.",
-      architecture: "The indoor architecture provides a defined celebration space with full environmental control. What you arrive to is exactly what was designed, unaffected by external variables.",
-      photography: "Indoor photos have the most controllable lighting of any of our spaces — the decoration team's careful lighting design is the primary light source, producing the intended aesthetic in every frame.",
-      weather: "Completely weather-independent. Rain, heat, wind — none of these affect an indoor celebration at ${V}.",
-      intimacy: "Indoor settings create complete privacy and an intimate, controlled atmosphere. The outside world does not intrude.",
-    },
-    outdoor: {
-      sensory: "Outdoor celebration involves real, unmediated sensory contact with the natural environment — the quality of outdoor air, the sounds of the city from an elevated vantage point, the actual experience of weather and sky.",
-      architecture: "Outdoor spaces at ${V} use the building's elevated position to create separation from street level. The outdoor space feels genuinely removed from ordinary city life.",
-      photography: "Outdoor photography captures the interaction between the decorated celebration space and the natural sky — this combination creates images that purely indoor photos cannot achieve.",
-      weather: "Outdoor celebrations are best in Vadodara's cooler, clearer months — winter evenings, and the period just after monsoon when the air is clean and visibility is excellent.",
-      intimacy: "The outdoor setting creates intimacy through separation — being above and apart from ordinary city activity, in a space created specifically for you.",
-    },
-    "rooftop-terrace": {
-      sensory: "The rooftop terrace combines the best of both — the elevated outdoor sensory experience with the defined spatial character of a terrace. The air, the sky, and the city view are all present, within a designed celebration space.",
-      architecture: "The rooftop terrace uses the building's highest accessible level to maximise the visual and sensory interaction with the urban environment. The cityscape becomes a living backdrop.",
-      photography: "Rooftop terrace photos are among the most dramatic we produce — the combination of elevation, sky backdrop, and celebration decoration creates images with exceptional depth and visual interest.",
-      weather: "The rooftop terrace is optimised for Vadodara's best weather periods. Clear winter nights under fairy lights and stars is our signature rooftop terrace experience.",
-      intimacy: "The elevated, semi-defined space of the rooftop terrace creates the 'island in the sky' quality that many couples describe as their most romantic setting.",
-    },
-  };
-
-  const vi = venueInfo[slug] || venueInfo["rooftop-terrace"];
-
-  const intro = `Venue is not just backdrop — it is experience. Where you celebrate shapes how you celebrate: what you feel, what you notice, what you remember. A ${kwl} at ${V} is a specific architectural and sensory experience as much as it is a romantic occasion.\n\n${vi.sensory}\n\nOur ${kwl} packages start from ${LOW} and include three hours of exclusive access to this space — entirely private, fully decorated for your occasion, with food, drinks, and music.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `The ${mod}: Architecture and Atmosphere`,
-      content: `${vi.architecture}\n\n**The Photography Dimension**: ${vi.photography}\n\n**Weather and Season**: ${vi.weather}\n\n**Intimacy Quality**: ${vi.intimacy}\n\n**Decoration in This Space**: Our team adapts the decoration approach to work with this specific architecture. The ${mod.toLowerCase()}'s spatial characteristics determine how balloons are placed, where candles go, how fairy lights are strung, and where the primary photo zones are positioned. The decoration is designed for this space, not imported generically.\n\n**Capacity and Configuration**: The ${mod.toLowerCase()} is configured for couples — two people, complete privacy. Some packages allow up to four people. The space is oriented toward intimacy, not group events.`
-    },
-    {
-      heading: `Packages for Your ${kwl}`,
-      content: `${(slug === "glass-house" || slug === "indoor" || slug === "private-cabin")
-        ? `**Glass House / Indoor Package Options**:\n\n**Golden Promise Glass House \u2014 ${formatPrice(6000)}**: Our most complete glass house package. The decoration is specifically designed to use the glass walls as part of the visual experience — reflections, light depth, candle multiplication. Complimentary cake.\n\n**Timeless Bond Glass House \u2014 ${formatPrice(5700)}**: The elegance of the glass house space with a classic romantic setup. The name is apt — there is something genuinely timeless about the quality of experience this venue produces.\n\n**Sweet Together Glass House \u2014 ${formatPrice(5500)}**: A warmer, slightly more playful setup within the glass house. The space takes a different register when the decoration palette shifts.\n\n**Pure Love Glass House \u2014 ${LOW}**: The full glass house architectural experience at our most accessible price. The venue itself is the primary experience — and it delivers regardless of the decoration tier.`
-        : `**Rooftop / Outdoor Package Options**:\n\n**Forever Us LoveFrame Rooftop \u2014 ${formatPrice(6900)}**: Our signature package for the rooftop setting. The LoveFrame photo installation is positioned to use the rooftop's sky backdrop — the result is extraordinary. Complimentary cake. The most complete outdoor celebration we offer.\n\n**Eternal Love Rooftop \u2014 ${formatPrice(6500)}**: The canopy element of this package creates a sheltered, intimate zone within the open rooftop — the combination of shelter and openness is particularly romantic. Complimentary cake.\n\n**Moonlit Romance Experience \u2014 ${formatPrice(5100)}**: The name describes the optimal version of this package — a moonlit rooftop night with fairy lights and the city below. Our most atmospheric offering at this price point.\n\n**The Promise Creative Area \u2014 ${LOW}**: The outdoor experience at our most accessible price. The venue and the sky remain the primary experience.`}\n\nAll packages: 3 hours private venue, full decoration adapted for the ${mod.toLowerCase()}, welcome drinks, food menu, romantic music.`
-    },
-    {
-      heading: `Booking Your ${kwl}`,
-      content: `**Availability**: The ${mod.toLowerCase()} is available across all four time slots \u2014 Lunch (12\u20133 PM), Evening (4\u20137 PM), Dinner (7\u201310 PM), and Late Night (10 PM\u20131 AM). Each slot produces a different version of the ${mod.toLowerCase()} experience: the afternoon quality of light versus the evening transition versus the full night version.\n\n**Time Slot Recommendation**: ${slug === "glass-house" || slug === "indoor" || slug === "private-cabin" ? "The glass house / indoor setting is beautiful at any time, but the Dinner slot (7-10 PM) produces the most dramatic lighting contrast — the controlled indoor light against the darkness outside." : "The Dinner slot captures the transition from evening light to full night — the most spectacular version of the outdoor experience. Late Night is extraordinary on clear nights."}\n\n**Booking Process**: WhatsApp ${PH} with your date preference and mention you want the ${mod.toLowerCase()} specifically. We confirm availability, suggest the best package for your occasion, and lock the booking with advance payment.\n\n**Lead Time**: Book 4\u20135 days ahead for weekday slots. Weekend and festival dates require 7\u201314 days advance booking.\n\nThe ${mod.toLowerCase()} at ${V} is a celebration environment unlike anything else in ${C}. WhatsApp ${PH} to begin.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateQualifierContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-
-  const qualifierContext: Record<string, { claim: string; evidence: string; differentiation: string }> = {
-    best: {
-      claim: "The word 'best' is easy to say and difficult to justify. Here is the evidence behind the claim for ${V} as the best ${service} in ${C}.",
-      evidence: "4.9-star average across hundreds of verified Google reviews. Over 3,000 celebrations completed. Zero-hidden-charges policy verified by every guest who has booked. Consistent quality maintained across all time slots, all packages, all occasions.",
-      differentiation: "The distinction between 'best' and 'good' comes down to the details that only become apparent in the comparison. At ${V}, the difference is: complete privacy (not semi-private), full decoration setup (not minimal), transparent pricing (not quoted-low-charged-high), and a team that has done this thousands of times (not a restaurant adapting).",
-    },
-    "top-rated": {
-      claim: "Top-rated status in a city's restaurant and venue landscape is earned over time, through consistent delivery, and reflected in verified customer reviews. ${V} holds its 4.9-star rating across hundreds of reviews because the experience justifies it.",
-      evidence: "Genuine reviews from real couples who celebrated here — across all service categories, all packages, all occasions. The rating has been maintained consistently because the underlying experience has been maintained consistently.",
-      differentiation: "Top-rated means top among alternatives. The relevant comparison: ${V} versus restaurants with a private corner (not the same), versus other dedicated romantic venues (very few in ${C}), versus DIY arrangements (no service, no team, no guaranteed outcome).",
-    },
-    "highly-recommended": {
-      claim: "Recommendation is the most honest form of endorsement — when someone who has experienced something tells another person to try it, with no incentive, that is genuine signal.",
-      evidence: "The vast majority of new bookings at ${V} come through personal recommendation. Couples who celebrate here tell their friends. Friends book. This word-of-mouth network is the most reliable indicator of genuine quality.",
-      differentiation: "Highly recommended means the experience consistently delivers at a level that motivates people to actively advocate for it. That motivation comes from two things: the experience exceeding expectations and the relative unavailability of comparable alternatives in ${C}.",
-    },
-    popular: {
-      claim: "Popularity in the context of celebration venues is a meaningful quality signal — it means the venue is chosen repeatedly, by many different people, across many different occasions.",
-      evidence: "Fully booked weekends and festival dates. Consistent demand across all four time slots. Repeat customers (couples who celebrate multiple occasions at the same venue). Growing booking volume year over year.",
-      differentiation: "The most popular venue for a specific experience becomes popular because it does that experience better than alternatives. In ${C} for private romantic celebration, ${V} is the venue that couples consistently find and choose.",
-    },
-    "award-winning": {
-      claim: "Recognition from third parties — review platforms, media, industry bodies — provides external validation of quality claims.",
-      evidence: "Featured in regional media coverage of Vadodara's romantic dining and celebration scene. Consistently appearing at the top of platform searches for romantic venues in ${C}. Review volume and rating combination placing ${V} among Vadodara's top celebration venues.",
-      differentiation: "The combination of quantity (3,000+ celebrations) and quality (4.9-star rating) is the most meaningful form of recognition — it means the experience delivers consistently at scale, not just occasionally under ideal conditions.",
-    },
-    trusted: {
-      claim: "Trust, in the context of celebration planning, means: the experience will be what you were promised, your investment will produce the outcome you intended, and the people handling your special occasion understand its significance.",
-      evidence: "No hidden charges, ever. Transparent pricing displayed publicly. Rescheduling policy that acknowledges life changes. A team that has handled thousands of celebrations and understands the emotional stakes.",
-      differentiation: "Trust is earned through the absence of negative surprises. The most common complaint about celebration venue experiences is the gap between what was promised and what was delivered. ${V}'s consistency closes that gap.",
-    },
-  };
-
-  const qc = qualifierContext[ek.modifier] || qualifierContext["best"];
-
-  const claim = qc.claim.replace(/\${service}/g, service.name.toLowerCase()).replace(/\${C}/g, C);
-  const evidence = qc.evidence.replace(/\${C}/g, C);
-  const diff = qc.differentiation.replace(/\${C}/g, C);
-
-  const intro = `When you search for the ${kwl}, you are asking a specific question: among all the options in ${C}, which one is actually worth choosing for this occasion? This page attempts to answer that question honestly.\n\n${claim}\n\nPackages start from ${LOW} and include everything — private venue, full decoration, food, drinks, 3 hours.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `The Evidence Behind "${mod}"`,
-      content: `${evidence}\n\n${diff}\n\n**What Couples Say**: The language that appears most consistently in verified reviews of ${V} across years of celebrations:\n\n*"Walking in and seeing the setup — my partner was speechless. That moment alone was worth everything."*\n\n*"We have celebrated at multiple venues over the years. The difference here is the completeness — nothing feels missing, nothing feels added as an afterthought."*\n\n*"The privacy is genuinely different from what restaurants call private. We were the only people there. For three hours, the space was entirely ours."*\n\n*"The team handles everything. I told them the occasion and my partner's preferences and they executed it. I did not have to coordinate anything."*\n\nThese are not isolated responses — they reflect a consistent experience across thousands of celebrations.`
-    },
-    {
-      heading: `${mod} ${service.name} Packages`,
-      content: `The experience that earns the ${mod.toLowerCase()} designation is available at every price point:\n\n**Forever Us LoveFrame Rooftop \u2014 ${formatPrice(6900)}**: The LoveFrame installation is genuinely unique — it produces a specific visual effect that couples consistently describe as the most striking element of the setup. Complimentary cake. The rooftop elevation adds a spatial dimension that ground-level venues cannot match.\n\n**Eternal Love Rooftop \u2014 ${formatPrice(6500)}**: The canopy creates a sheltered private zone within the open rooftop — both intimate and expansive simultaneously. Complimentary cake.\n\n**Golden Promise Glass House \u2014 ${formatPrice(6000)}**: The glass house architecture is an experience in itself — the walls, the light refraction, the candle multiplication. Complimentary cake.\n\n**Mid-Range Options \u2014 ${formatPrice(5100)} to ${formatPrice(5700)}**: The same quality of experience with slightly less decoration complexity. The privacy, the service quality, and the team experience remain constant at every tier.\n\n**Starting from ${LOW}**: The ${mod.toLowerCase()} experience begins here — complete decoration, complete privacy, complete service.\n\nAll packages: 3 hours private venue, full setup, welcome drinks, food menu, music.`
-    },
-    {
-      heading: `Booking the ${mod} ${service.name} Experience`,
-      content: `**How to Book**: WhatsApp ${PH}. Share your preferred date, occasion, and approximate budget. Our team recommends the best package for your situation and confirms availability.\n\n**Lead Time**: 4\u20135 days for weekday slots. 7\u201314 days for weekends and festival dates. The ${mod.toLowerCase()} status means demand is consistent \u2014 book ahead.\n\n**The Process**: Advance payment confirms your booking. From that point, our team handles everything. You arrive to a fully realised celebration space. The outcome has been prepared by people who have done this thousands of times.\n\n**The Standard We Hold**: Every celebration at ${V} is treated as the only one happening that day for the team delivering it. The detail-checking, the setup quality, the decoration execution \u2014 these are consistent because our team's professional standards do not vary by package tier or day of week.\n\nTo book the ${mod.toLowerCase()} ${service.name.toLowerCase()} in ${C}: WhatsApp ${PH}.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateHowtoContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-
-  const intro = `This is the complete insider guide to planning a ${service.name.toLowerCase()} in ${C} — written from 3,000+ actual celebrations at ${V}, not from generic event planning advice.\n\nMost planning guides tell you what to consider. This one tells you what actually matters, what frequently goes wrong, and how the couples who have the best experiences approach the process differently from those who don't. Everything here is based on real patterns observed across thousands of celebrations.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `Step 1: Decide What Kind of Experience You Want to Create`,
-      content: `This is the step that most people skip, and it is the most important one. Before choosing a venue, a package, or a date, be specific about what emotional experience you are trying to create for your partner.\n\n**The most successful celebrations share one characteristic**: they are built around a specific emotional intention, not just an occasion. "I want my partner to feel genuinely surprised and loved" is more useful planning guidance than "I want to do something nice for their birthday."\n\n**Questions to answer before you book**:\n- Do you want your partner to feel more surprised or more included in the planning?\n- Is the visual spectacle of the setup the main gift, or is the experience the main gift?\n- What does your partner find romantic? (Some people find elaborate decoration profoundly romantic; others find it overwhelming and prefer intimacy.)\n- Are photos important to your partner? (This affects which packages and which time slots to prioritise.)\n- What is the occasion context? (First big celebration vs recurring milestone has different emotional weight.)\n\n**The honest answer to "How much should I spend?"**: The best predictor of celebration success is not the package price — it is the degree to which the setup matches what your specific partner finds meaningful. A ${LOW} package with a deeply personal touch will outperform a ${HIGH} package with generic execution every time.`
-    },
-    {
-      heading: `Step 2: Choose the Right Venue and Time`,
-      content: `**The Venue Decision**: ${V} offers two distinct venue types — rooftop (open-air, city views, elevated) and glass house (enclosed, glass-walled, intimate). These are genuinely different experiences, not just aesthetic variations.\n\nChoose **rooftop** if: your partner loves open air, the occasion is best experienced with spatial grandeur, you want the sky and city in the background, or the time slot is evening/night.\n\nChoose **glass house** if: your partner prefers enclosure and intimacy, the occasion calls for a private, sheltered quality, the visit is during monsoon season, or the candle-and-glass-reflection aesthetic is particularly appealing.\n\n**The Time Slot Decision**: This matters more than most people expect.\n\n*Lunch (12–3 PM)*: Natural light, casual energy, good for celebration types that feel more playful than romantic-solemn. The most available slot on weekdays.\n\n*Evening (4–7 PM)*: The golden-hour-to-dusk transition is the most photographically spectacular period. Ideal for couples who prioritise photos. The sky changes completely during these three hours.\n\n*Dinner (7–10 PM)*: The most popular slot. Full night, full fairy-light effect, maximum romantic atmosphere. The classic choice.\n\n*Late Night (10 PM–1 AM)*: The most exclusive feeling — the city has quieted, the rooftop is at its most still, the stars (when visible) are more prominent. For couples who value the unusual, this is the most memorable slot.`
-    },
-    {
-      heading: `Step 3: Book, Personalise, and Prepare`,
-      content: `**Booking**: WhatsApp ${PH} with your preferred date and time slot. Our team checks availability and recommends the best package for your occasion and budget. Advance payment locks your booking — typically done by UPI or bank transfer within 24 hours of confirming.\n\n**Lead Times That Actually Matter**:\n- Weekday slots: 3–4 days minimum, 5–7 days recommended\n- Weekend slots: 7 days minimum, 10+ days recommended\n- Valentine's Day / Diwali / New Year: 2–3 weeks minimum — these fill completely well in advance\n- If you are reading this 24 hours before: WhatsApp immediately and ask about same-day availability. It is limited but sometimes possible.\n\n**Personalisation That Makes the Difference**:\nThe personalisation elements that consistently produce the strongest partner responses are:\n1. Something that references a specific memory — a song, a place, a date that you both know\n2. Their name in the decoration (letter boards, framed prints, or balloon arrangements)\n3. A cake message that says something specific, not generic\n4. A piece of handwritten writing — a letter, a list of specific reasons, a recounting of a specific memory\n\n**What to Bring**: Your partner. Everything else is handled.\n\n**What to Tell Us When Booking**: Occasion, your partner's personality (extrovert who loves grand gestures vs introvert who prefers quiet), any songs that are significant, preferred decoration colour palette if you have one, and whether this is a surprise. The more specific you are, the more we can build around your actual relationship.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateSeasonalContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-  const slug = ek.modifier;
-
-  const seasonalInfo: Record<string, { atmosphere: string; venueRec: string; timing: string; sensory: string; photography: string }> = {
-    summer: {
-      atmosphere: "Vadodara summers are intense — the heat accumulates through the day, and the evening arrival of a cooler air is deeply felt. For celebration purposes, this means the Dinner and Late Night slots have a particular quality in summer: the day's heat has passed, and the evening air carries its own energy.",
-      venueRec: "The glass house is climate-controlled and consistently comfortable. For rooftop celebrations in summer, the Late Night slot (10 PM–1 AM) is when the heat has genuinely cleared and the rooftop becomes extraordinary — the city settling into its night rhythm below.",
-      timing: "May and June are Vadodara's peak summer months. The Evening slot is not recommended for rooftop in peak summer. Late Night rooftop in summer is genuinely spectacular.",
-      sensory: "Summer evenings in Vadodara carry a distinctive quality — the specific scent of a city cooling after heat, the sounds of the evening, the quality of light during summer dusk. The rooftop in summer late-evening has a sensory richness that other seasons cannot replicate.",
-      photography: "Summer twilight has a particularly vivid quality in Gujarat — the sky colours are often dramatic, and the heat creates a slight atmospheric haze that softens and enriches evening photography.",
-    },
-    monsoon: {
-      atmosphere: "The Vadodara monsoon is among the most romantically charged atmospheric conditions in Gujarat. Rain creates a specific quality of enclosure — the world shrinks to what is immediately around you, sounds are softened by rainfall, and the air carries petrichor. A celebration during rain has its own irreplaceable character.",
-      venueRec: "The glass house is the optimal monsoon venue — entirely enclosed, with glass walls that allow you to watch the rain while remaining completely dry and comfortable. The candle-and-glass-wall effect in monsoon conditions — with rain on the glass creating a moving backdrop — is one of the most romantic visual experiences we produce.",
-      timing: "July through September in Vadodara. The glass house is fully weather-protected. Rooftop celebrations are possible on clear monsoon evenings — they sometimes occur between rain patterns — but the glass house is the reliable monsoon choice.",
-      sensory: "Monsoon celebrations at the glass house involve a unique sensory dimension: the sound of rain against glass, the visual of water running down transparent walls, and the enclosed warmth of the decorated space contrasted against the dramatic weather outside.",
-      photography: "Monsoon photos at the glass house have a particular quality — the rain on the glass walls creates a natural backdrop effect that no decoration team could produce. Combined with candle lighting, the results are extraordinary.",
-    },
-    winter: {
-      atmosphere: "Vadodara winters are genuinely romantic — the cool, clear air, the particular quality of winter evening light, and the sense of the city settling into a different register. The rooftop in winter has a quality that the rest of the year cannot match: clear skies, the city spread below, and the specific feeling of cool air with warm fairy lights surrounding you.",
-      venueRec: "The rooftop is the winter venue of choice at ${V}. The temperature is comfortable for outdoor celebration — cool enough to notice, not cold enough to be uncomfortable. The sky is clearer in winter, which means stars are more visible and the city spread below has better definition.",
-      timing: "November through February is Vadodara's winter period. The Dinner slot (7–10 PM) and Late Night (10 PM–1 AM) are the most spectacular in winter — full night, clear sky, cool air, fairy lights.",
-      sensory: "The winter rooftop experience is multi-layered: the physical sensation of cool air against warm fairy-light illumination, the visual of a clear winter sky above, the city spread below in its cool-season version. These sensory combinations are not available in any other season.",
-      photography: "Winter rooftop photography has exceptional visual quality — the clear air reduces atmospheric haze, the city lights below are crisp and defined, and the cool colour temperature of the night sky creates natural contrast with the warm tones of the celebration space.",
-    },
-    "rainy-season": {
-      atmosphere: "The rainy season extends the monsoon's romantic qualities — the specific combination of water, cool air, and the city in its greenest, most saturated version. A rainy-season celebration has a sensory richness that dry-season celebrations simply do not.",
-      venueRec: "The glass house is strongly recommended for rainy season celebrations. The rain-against-glass backdrop is a feature, not a problem — it creates a dynamic visual environment that complements the decoration.",
-      timing: "Rainy season in Vadodara runs approximately July through September. Book the glass house with confidence during this period.",
-      sensory: "Rain sound, petrichor through briefly opened air vents, the visual of active rainfall visible through glass walls — these sensory elements are rainy-season exclusives that couples consistently describe as among the most atmospherically rich aspects of their celebration.",
-      photography: "Rainy season glass house photos have a distinctive atmospheric quality — the rain on the glass creates natural depth effects in backgrounds that are unique to this season.",
-    },
-    weekend: {
-      atmosphere: "The weekend changes the emotional texture of celebration. There is no work tomorrow, no early alarm, no scheduled Monday obligations. This psychological release changes how present couples are during the celebration — weekend celebrations consistently produce more relaxed, more connected, more lingering experiences.",
-      venueRec: "Both rooftop and glass house work beautifully for weekend celebrations. The Evening slot (4–7 PM) on weekends is particularly popular — it captures the full day's relaxed energy transitioning into evening.",
-      timing: "Saturdays and Sundays book fastest. Contact us 7–10 days ahead for weekend slots. Festival weekends need 2–3 weeks notice.",
-      sensory: "Weekend celebrations have a specific unhurried quality — the awareness that tomorrow has no mandatory claim on you allows the three hours to be experienced more fully. Couples linger at the table, they are not monitoring the time anxiously.",
-      photography: "Weekend celebrations tend to produce more relaxed, more spontaneous photos — the reduced time pressure means couples are less aware of the camera and more present with each other.",
-    },
-    weeknight: {
-      atmosphere: "Weeknight celebrations have a quality that is genuinely different from weekends — they feel like a deliberate interruption of ordinary routine. The fact of celebrating on a Tuesday evening, when both people could have had a routine day, gives the celebration a particular intentionality.",
-      venueRec: "Weeknight availability is consistently better than weekends. The Dinner slot on weeknights often has a specific quality — a quieter city outside, a more focused quality to the celebration.",
-      timing: "Monday through Thursday are the most available. Friday starts to fill like a weekend. Same-week booking is often possible for weeknight slots.",
-      sensory: "Weeknight celebrations have the specific pleasure of the unexpected — the contrast between the ordinary week and the suddenly extraordinary evening produces a quality of surprise even when the celebration is planned.",
-      photography: "Weeknight rooftop photography benefits from the quieter city below — fewer vehicle headlights creating motion blur, a more settled visual environment.",
-    },
-    "long-weekend": {
-      atmosphere: "Long weekends have a particular quality of temporal expansion — the extra day extends the relaxed weekend feeling and makes celebration feel naturally appropriate. The public holiday context also means more couples are available on the same day, creating a collectively celebratory atmosphere.",
-      venueRec: "Both venues are available for long weekends. Book early — long weekends are among our most in-demand periods.",
-      timing: "Long weekends in India (Republic Day, Independence Day, Gandhi Jayanti, and various regional holidays) fill very quickly. Book 2–3 weeks in advance for these dates.",
-      sensory: "Long weekend celebrations have the most relaxed energy of any time slot — the knowledge of a day remaining afterward removes any time pressure, and couples consistently describe a quality of ease that is distinctive.",
-      photography: "Long weekend photos tend to have a relaxed, genuine quality — unhurried and present.",
-    },
-    holiday: {
-      atmosphere: "Public holiday celebrations carry a festive ambient atmosphere — the city itself is in a different register, and private celebrations connect to that collective mood.",
-      venueRec: "Both venues are beautiful for holiday celebrations. The specific holiday context may suggest a venue preference — outdoor rooftop for warm-weather holidays, glass house for the cosy indoor quality of some occasions.",
-      timing: "Holiday dates require advance booking — typically 1–2 weeks minimum. Contact us as soon as you decide on a holiday celebration.",
-      sensory: "Holiday celebrations combine the private romantic atmosphere with awareness of the larger cultural occasion — a pleasant doubling of celebratory context.",
-      photography: "Holiday photos sometimes incorporate the festive context outside the venue — city decorations visible from the rooftop, for instance — creating a layered visual record.",
-    },
-  };
-
-  const si = seasonalInfo[slug] || seasonalInfo["weekend"];
-  const atm = si.atmosphere.replace(/\$\{V\}/g, V);
-
-  const intro = `Season and timing are part of the celebration experience — they shape the atmosphere, the sensory environment, and the emotional texture of what you share. A ${kwl} at ${V} is not just a celebration of your relationship but a specific encounter with a particular moment in the year.\n\n${atm}\n\nPackages from ${LOW} include private venue, full decoration, food, drinks, and 3 hours.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `The ${mod} Experience at ${V}`,
-      content: `**Venue Recommendation**: ${si.venueRec.replace(/\$\{V\}/g, V)}\n\n**Timing**: ${si.timing}\n\n**The Sensory Dimension**: ${si.sensory}\n\n**Photography**: ${si.photography}\n\n**What We Adapt for ${mod}**: Our decoration team considers the ${mod.toLowerCase()} context when designing your setup. Colour palettes that complement the season. Lighting that accounts for the quality of ${mod.toLowerCase()} light. Placement choices that use the ${mod.toLowerCase()} environment rather than ignoring it.\n\nA ${kwl} at ${V} is not a generic celebration placed in a seasonal container — it is a celebration that genuinely engages with when it is happening.`
-    },
-    {
-      heading: `Packages for Your ${kwl}`,
-      content: `**Forever Us LoveFrame Rooftop \u2014 ${formatPrice(6900)}**: ${slug === "monsoon" || slug === "rainy-season" ? "Best in glass house configuration for this season." : "The rooftop's most complete package — ideal for clear-weather seasonal celebrations."} Complimentary cake.\n\n**Eternal Love Rooftop \u2014 ${formatPrice(6500)}**: The canopy provides partial shelter — good for transitional seasonal conditions. Complimentary cake.\n\n**Golden Promise Glass House \u2014 ${formatPrice(6000)}**: The glass house is the all-season reliable choice — beautiful regardless of weather. Complimentary cake.\n\n**Mid-Range Options \u2014 ${formatPrice(5100)} to ${formatPrice(5700)}**: Complete ${mod.toLowerCase()} celebration at more accessible price points. Same season-adapted decoration philosophy.\n\n**From ${LOW}**: The complete ${kwl} experience. Season is present in the setup regardless of package tier.\n\nAll packages: 3 hours private venue, full decoration, welcome drinks, food, music.`
-    },
-    {
-      heading: `Booking Your ${kwl}`,
-      content: `**When to Book**: ${si.timing}\n\n**How to Book**: WhatsApp ${PH} with your preferred date. Mention you want the ${mod.toLowerCase()} experience specifically \u2014 this helps our team make venue and time recommendations that are optimal for the season.\n\n**Weather Contingency**: For outdoor/rooftop ${mod.toLowerCase()} celebrations, we monitor conditions and communicate any concerns in advance. For monsoon and rainy season, we have the glass house as the reliable alternative. We do not cancel celebrations due to weather without providing an equal alternative.\n\nTo book your ${kwl}: WhatsApp ${PH} today.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateStyleContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-
-  const styleContext: Record<string, { platform: string; whyWorks: string; technique: string; bestSlot: string }> = {
-    instagram: {
-      platform: "Instagram favours vertical composition, saturated colour, and visual storytelling with clear focal points. Every element of our celebration setup is designed with these principles in mind.",
-      whyWorks: "The balloon walls create natural vertical focal planes. The fairy light arrangements create depth through point-light effects. The candles add warm colour contrast that the Instagram algorithm historically rewards. The multiple photo zones provide variety for a complete story-telling set rather than a single repetitive image.",
-      technique: "For Instagram: shoot toward the balloon wall with your partner in the foreground, using the candle arrangement as middle-ground depth. The vertical format is your primary frame. Use Portrait mode for subject focus with decoration blur.",
-      bestSlot: "The Evening slot (4–7 PM) captures golden hour natural light transitioning to fairy light — the most Instagram-optimal lighting transition available at our venue.",
-    },
-    "photo-worthy": {
-      platform: "A photo-worthy space is one where the visual environment does significant work — where a good image requires minimal skill because the setting is already composed. Our venue is designed to be photo-worthy in this sense.",
-      whyWorks: "The decoration layering creates natural depth. The multiple light sources (fairy lights, candles, spotlights) eliminate the flat, harsh quality that kills indoor photography. The colour palette of each setup is photographically considered — warm tones that render well, contrast ratios that maintain detail in both highlight and shadow.",
-      technique: "For general photo-worthy shots: use the overhead fairy light arrangement as your background when shooting from below, or the balloon wall as your background when shooting from the side. Move around the space — each angle produces a substantially different image.",
-      bestSlot: "Dinner slot (7–10 PM) is the peak photo-worthy period — full fairy light effect, no competing natural light, maximum controlled atmosphere.",
-    },
-    "candlelight-setup": {
-      platform: "Candlelight photography is among the most technically demanding and aesthetically rewarding types of indoor photography. The challenge is the contrast between the bright flame and the dark surrounding. The reward is the warmth and depth that no electric lighting can fully replicate.",
-      whyWorks: "Our candlelight setups use graduated candle heights to distribute light across multiple planes, reducing the contrast problem. The glass holders diffuse the flame slightly, creating a softer, more even light source. Multiple candle clusters rather than single sources create ambient fill light.",
-      technique: "For candlelight photography: shoot at f/1.8 or wider if possible, ISO 800–1600, and a shutter speed of 1/60 or faster to prevent motion blur. The camera should expose for the subject's face rather than the candles — let the candles slightly overexpose in the frame.",
-      bestSlot: "The Dinner slot produces the most dramatic candlelight photography — the contrast between candle warmth and the night outside creates maximum visual impact.",
-    },
-    "aesthetic-decoration": {
-      platform: "Aesthetic, in contemporary visual culture, means intentionally designed rather than merely decorated — each element placed for visual effect rather than just presence. Our setups are designed with aesthetic intentionality.",
-      whyWorks: "The colour coordination across all decoration elements. The three-dimensional depth of the setup (ceiling elements, mid-height balloons, ground-level candles and rose petals). The proportion and spacing between elements. The overall visual balance of the completed space.",
-      technique: "For aesthetic photography: seek out the angles where multiple decoration layers are visible simultaneously — foreground, middle-ground, and background all containing visual interest. These layered shots demonstrate the designed quality of the space.",
-      bestSlot: "Any slot produces aesthetic-quality images at ${V}, but the Evening slot captures the most complex lighting environment — natural and artificial simultaneously.",
-    },
-    "fairy-lights": {
-      platform: "Fairy lights have become the signature visual element of romantic photography — thousands of small light points that create a floating, ambient environment unlike any other light source. The bokeh effect of out-of-focus fairy lights is among the most sought-after visual effects in contemporary romantic photography.",
-      whyWorks: "Our fairy light arrangements use multiple independent strands at different heights and densities, creating the layered depth effect that maximises the bokeh potential. The warm white colour temperature is specifically chosen for romantic photography — it renders skin warmly and creates emotional associations with intimacy.",
-      technique: "For fairy light photography: position your partner with the fairy lights behind them and shoot with a wide aperture (f/1.8–f/2.8). The out-of-focus lights become large, soft circles (bokeh). The wider the aperture, the larger and softer the circles. Move closer to your partner to increase the relative size of the bokeh.",
-      bestSlot: "Dinner or Late Night — full dark provides maximum fairy light contrast and the most dramatic bokeh effect.",
-    },
-    "balloon-decoration": {
-      platform: "Balloon installations have evolved dramatically from birthday party decorations to sophisticated architectural elements. Our balloon setups are designed as visual installations — three-dimensional objects that create space, frame subjects, and provide visual complexity.",
-      whyWorks: "The balloon wall is the most photographically versatile element of our setup — it functions as a complete backdrop, as a subject in itself, and as a colour field that interacts with the subjects in front of it. The gradient colour arrangements and mixed matte/metallic finishes create visual depth in a flat plane.",
-      technique: "For balloon photography: experiment with the distance between your subject and the balloon wall. Close proximity creates an intimate connection between subject and backdrop. Increased distance allows the subject to stand out more clearly. Side lighting from candles creates surface texture in the balloons that flat frontal lighting eliminates.",
-      bestSlot: "Any slot — balloon colour renders beautifully in all lighting conditions at our venue.",
-    },
-    "romantic-ambiance": {
-      platform: "Ambiance is the quality of a space that photographs as feeling rather than just appearance — the visual equivalent of how the space feels to be inside. Creating ambiance in photography requires attending to all elements simultaneously rather than any single one.",
-      whyWorks: "Our romantic ambiance setups are built for this total-environment quality. The layered light sources, the colour-coordinated decoration, the combination of floral and textile and light elements — together they create a visual environment with an unmistakeable emotional quality that photographs as feeling.",
-      technique: "For ambiance photography: capture wide shots that include as much of the environment as possible alongside the subjects — the ambiance is in the totality of the space, not in any single element. Then move closer for detail shots: the candle flame, the rose petals, the fairy lights, each of which contributes to the total.",
-      bestSlot: "Dinner slot — the complete controlled atmospheric lighting is most fully realised in the evening slot.",
-    },
-  };
-
-  const sc = styleContext[ek.modifier] || styleContext["romantic-ambiance"];
-  const platform = sc.platform.replace(/\$\{V\}/g, V);
-  const technique = sc.technique.replace(/\$\{V\}/g, V);
-  const bestSlot = sc.bestSlot.replace(/\$\{V\}/g, V);
-
-  const intro = `A ${kwl} at ${V} is designed to be visually extraordinary — not as a secondary consideration but as a primary design principle. Every decoration element, every lighting choice, and every setup configuration is made with photographic quality in mind. The result is a space where even phone cameras consistently produce stunning images.\n\n${platform}\n\nPackages from ${LOW} include the complete ${mod.toLowerCase()} setup with multiple dedicated photo zones.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `Why ${mod} Photography Works at ${V}`,
-      content: `${sc.whyWorks}\n\n**The Photo Zone Strategy**: Rather than one photo spot, our setups include 3–4 distinct visual environments within the same celebration space. This provides variety for a complete set of images rather than multiple versions of the same shot.\n\n**Primary Zone**: The balloon wall or main decorated backdrop — vertical composition, strong colour, the signature photo of the celebration.\n\n**Candle Zone**: The table setting with candle arrangements — intimate, warm, showing the dining environment.\n\n**Detail Zone**: Rose petals, individual candles, flower arrangements — close-up shots that document the decoration quality.\n\n**Couple Zone**: A spot optimised for couple photos together — typically where the fairy lights are densest and the background has the most depth.\n\n**Best Time Slot for ${mod} Photography**: ${bestSlot}`
-    },
-    {
-      heading: `Photography Techniques for Your ${kwl}`,
-      content: `${technique}\n\n**General Tips from 3,000+ Celebrations**:\n\n*Don't rush*: The best photos from celebrations at ${V} are rarely taken in the first few minutes. Allow the initial excitement to settle, then return to photography when you are both more relaxed and present. The space will look the same; the photos will be better.\n\n*Vertical orientation*: For social media use, shoot vertically from the start. The balloon walls and fairy light arrangements are specifically designed for vertical composition.\n\n*Natural moments*: The decorated space is striking, but the most compelling celebration photos are of people genuinely enjoying each other rather than posed for the camera. Move between documentary (candid, natural) and portrait (posed, camera-aware) shooting.\n\n*Bring your camera if you have one*: Our venue is designed for phone cameras but rewards professional equipment. A mirrorless or DSLR camera with a fast prime lens (35mm or 50mm at f/1.8) will produce extraordinary images in our lighting environment.`
-    },
-    {
-      heading: `Book Your ${kwl}`,
-      content: `The ${mod.toLowerCase()} setup at ${V} is available in all eight packages, starting from ${LOW}. The photographic quality is consistent across all tiers — what changes between packages is the complexity of the decoration, not the photographic intelligence of the design.\n\n**Package Recommendations for ${mod} Photography**:\n\n**Forever Us LoveFrame Rooftop \u2014 ${formatPrice(6900)}**: The LoveFrame installation creates a unique visual element — a framed photo composition that no other setup provides. The rooftop backdrop adds the city skyline. Complimentary cake.\n\n**Eternal Love Rooftop \u2014 ${formatPrice(6500)}**: The canopy element creates an overhead visual frame — useful for wide shots that want ceiling definition. Complimentary cake.\n\n**Golden Promise Glass House \u2014 ${formatPrice(6000)}**: The glass walls create unique photographic opportunities — reflections, light depth, and the distinctive glass-house aesthetic. Complimentary cake.\n\n**From ${LOW}**: The ${mod.toLowerCase()} setup starts here. The photographic design principles apply at every tier.\n\nTo book your ${kwl}: WhatsApp ${PH} with your date preference.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateNearmeContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-
-  const intro = `When someone searches for "${kwl}", they are asking a location question with an emotional answer. They want what they want, and they want it accessible — not a destination that requires a cross-city commitment. ${V} in Gotri is designed to serve this need: premium private romantic celebration, accessible from every part of ${C}.\n\nThe full address: 424, OneWest, Asopalav W, 4th Floor, Priya Talkies Road, Gotri, Vadodara 391101. From most of ${C}'s major residential areas, the drive is 10–25 minutes. The three hours you spend celebrating are a longer journey than the transit to get there.\n\nPackages from ${LOW} include private venue, full decoration, food, drinks, and 3 hours.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `Getting to ${V} from Across ${C}`,
-      content: `**From Alkapuri / Race Course**: Approximately 15–20 minutes via RC Dutt Road toward Gotri. This is one of the more direct routes from the city's established residential areas.\n\n**From Akota / Sayajigunj**: Approximately 15–20 minutes via Akota Garden Road. A straightforward route through central Vadodara.\n\n**From Fatehgunj / Karelibaug**: Approximately 20–25 minutes via Waghodia Road or through the city. A slightly longer drive that still sits well within the commute couples consider reasonable for a private celebration.\n\n**From Gotri / Sevasi**: 5–10 minutes. This is our immediate neighbourhood — the shortest possible commute.\n\n**From Manjalpur / Waghodia Road**: Approximately 20–25 minutes via the Ring Road or Waghodia Road through the city.\n\n**From Sama / Harni / Atladara**: Approximately 15–20 minutes via the Ring Road sections connecting to Gotri.\n\n**Navigation**: Search "Friends Factory Cafe Vadodara" on Google Maps. The listing is verified and directions are accurate from any starting point in Vadodara.\n\n**Parking**: Street parking is available near the OneWest building. Auto-rickshaws and cabs drop directly at the building entrance.\n\n**Building Access**: 4th floor of the OneWest building. Elevator available.`
-    },
-    {
-      heading: `Why the Nearme Search Leads Here`,
-      content: `The "near me" search for romantic celebration venues reflects a specific combination of needs: you want the experience to be genuinely premium (not just the nearest option that calls itself romantic), you want it accessible (not requiring a planned expedition), and you want it private (not a restaurant that can accommodate a request but isn't designed for it).\n\n${V} is designed to serve exactly this combination. It is in the city — accessible from everywhere — and it is not a compromise. The rooftop and glass house venues are designed specifically for private couple celebrations. The food, the decoration, the service team — all of it is built for this purpose.\n\n**What "Near Me" Actually Delivers at ${V}**:\n\n**Genuine Privacy**: Not a partitioned restaurant section but a dedicated private venue that is yours alone for 3 hours.\n\n**Professional Setup**: A team that has executed 3,000+ celebrations — decorations, coordination, food service — handled completely.\n\n**Transparent Pricing**: Starting from ${LOW}, with everything included. What you see is what you pay.\n\n**Accessible Booking**: WhatsApp ${PH} and get a response within minutes. No phone tree, no reservation system, no waiting.\n\nThe best ${kwl} is not the nearest one on a map — it is the one that delivers the experience you are actually looking for, at a distance you are comfortable with. For most of ${C}, that is ${V}.`
-    },
-    {
-      heading: `Booking Your ${kwl}`,
-      content: `**How**: WhatsApp ${PH}. Share your preferred date, time slot, and occasion. Our team responds within minutes and walks you through the options.\n\n**Lead Time**: Weekday bookings: 3–4 days recommended. Weekend bookings: 5–7 days. Same-day availability is sometimes possible on weekdays — WhatsApp to check.\n\n**Packages**: From ${LOW} (The Promise Creative Area, Pure Love Glass House) to ${HIGH} (Forever Us LoveFrame Rooftop with cake). Eight total options across two venue types and four price tiers.\n\n**Time Slots**: Lunch (12–3 PM), Evening (4–7 PM), Dinner (7–10 PM), Late Night (10 PM–1 AM). All four are available. The Dinner slot is our most popular.\n\nTo book your ${kwl} at ${V}: WhatsApp ${PH}.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generatePriceContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const slug = ek.modifier;
-
-  const priceDetails: Record<string, { headline: string; packages: string; insight: string }> = {
-    "under-5000": {
-      headline: "Two packages sit under ₹5,000 and neither is a compromise.",
-      packages: `**The Promise Creative Area — ${LOW}**: Our tent-style creative area setup. Full decoration with balloon arrangement, fairy lights, candles, rose petal pathway. Welcome drinks, complete food menu, 3 hours private access. Cake available as an add-on at ₹350.\n\n**Pure Love Glass House — ${LOW}**: The glass house architectural experience at the most accessible price point. White-tone decoration palette in the glass-walled space. Complete inclusions: drinks, food, music, 3 hours.`,
-      insight: `The most common misconception about celebration packages under ₹5,000 is that they represent a diminished version of the premium experience. At ${V}, the core experience — complete privacy, professional decoration, food and drinks, the venue itself — is present at every tier.`,
-    },
-    "under-6000": {
-      headline: "Five packages sit under ₹6,000 — here is what each one delivers.",
-      packages: `**Pure Love Glass House — ${LOW}**: Glass house, white-tone decoration, complete food and drinks.\n\n**The Promise Creative Area — ${LOW}**: Tent-style creative area with full decoration.\n\n**Moonlit Romance Experience — ${formatPrice(5100)}**: Enhanced decoration complexity.\n\n**Sweet Together Glass House — ${formatPrice(5500)}**: The glass house with a warmer, more playful decoration palette.\n\n**Timeless Bond Glass House — ${formatPrice(5700)}**: The most elegant glass house option under ₹6,000.`,
-      insight: `Below ₹6,000, all five options include the complete core experience: private venue, professional decoration, welcome drinks, the full food menu, romantic music, and 3 hours. The decision between them is primarily aesthetic.`,
-    },
-    "under-7000": {
-      headline: `All eight packages at ${V} are under ₹7,000 — here is the complete picture.`,
-      packages: `**From ${LOW}**: Pure Love Glass House and The Promise Creative Area.\n**${formatPrice(5100)}**: Moonlit Romance Experience.\n**${formatPrice(5500)}**: Sweet Together Glass House.\n**${formatPrice(5700)}**: Timeless Bond Glass House.\n**${formatPrice(6000)}**: Golden Promise Glass House (cake included).\n**${formatPrice(6500)}**: Eternal Love Rooftop (cake included).\n**${formatPrice(6900)}**: Forever Us LoveFrame Rooftop (cake included, LoveFrame installation).`,
-      insight: `Under ₹7,000 covers the complete range of celebration experiences at ${V} — from accessible to premium.`,
-    },
-    "5000-to-7000": {
-      headline: "The ₹5,000–₹7,000 range contains our most popular packages.",
-      packages: `**Moonlit Romance Experience — ${formatPrice(5100)}**: Entry into enhanced decoration territory.\n\n**Sweet Together Glass House — ${formatPrice(5500)}**: Glass house with warm decoration aesthetic.\n\n**Timeless Bond Glass House — ${formatPrice(5700)}**: Classic romantic elegance.\n\n**Golden Promise Glass House — ${formatPrice(6000)}**: Most complete glass house package. Complimentary cake.\n\n**Eternal Love Rooftop — ${formatPrice(6500)}**: Open-air rooftop canopy. Complimentary cake.\n\n**Forever Us LoveFrame Rooftop — ${formatPrice(6900)}**: Our signature. LoveFrame installation, rooftop, complimentary cake.`,
-      insight: `This range is where most couples who want both a premium experience and considered value end up. The packages between ₹5,000 and ₹7,000 represent the full range of our venue types and decoration styles.`,
-    },
-  };
-
-  const pd = priceDetails[slug] || priceDetails["under-7000"];
-
-  const intro = `Price transparency is a policy at ${V}. The price we quote for your ${kwl} is the price you pay — no service charges added at checkout, no mandatory gratuity, no decoration fees on top of the package price.\n\n${pd.headline}\n\nAll packages from ${LOW} include private venue, full decoration, welcome drinks, complete food menu, romantic music, and 3 hours of exclusive access.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `${service.name} Packages ${ek.modifierLabel}: What You Get`,
-      content: pd.packages + "\n\n" + pd.insight,
-    },
-    {
-      heading: `What Is Included at Every Price Point`,
-      content: `Regardless of which ${kwl} package you choose, every booking includes:\n\n**3 Hours Private Venue**: The space is exclusively yours. No other guests, no shared access.\n\n**Complete Decoration Setup**: Balloon arrangement, fairy lights, candles, rose petal pathway, table setting. Our team arrives 2–3 hours before your slot to complete full setup.\n\n**Welcome Drinks**: On arrival, your celebration begins immediately.\n\n**Food Menu**: Cheese fondue with bread, paneer tortilla wrap, peri peri fries with mac & cheese, chocolate brownie, and two signature mocktails. Veg and Jain options available.\n\n**Romantic Music**: A curated playlist. You can request specific songs.\n\n**Dedicated Service**: A team member is present throughout for food service and any requirements.\n\n**What Differs Between Packages**: Decoration complexity, venue type (glass house vs rooftop), and whether complimentary cake is included (Golden Promise, Eternal Love, Forever Us).`
-    },
-    {
-      heading: `Booking Your ${kwl}`,
-      content: `WhatsApp ${PH} with your occasion, preferred date, and approximate budget. Our team recommends the best match from the ${kwl} range and confirms availability.\n\nLead time: 3–5 days for weekday slots. 7–10 days for weekends. Festival dates require 2–3 weeks advance booking.\n\nTo book your ${kwl} at ${V}: WhatsApp ${PH}.`
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateRelationshipContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-
-  const relationshipContext: Record<string, { truth: string; specifics: string; packageRec: string }> = {
-    "for-newly-married": {
-      truth: "Newlywed couples are in a particular phase: the wedding is complete, the honeymoon is over, and ordinary life has resumed. But the intensity of the wedding period still lingers. A post-wedding celebration at a private venue is a way to extend that intensity deliberately — to have one more occasion that feels ceremonial before settling fully into the married rhythm.",
-      specifics: "Newlywed celebrations at ${V} often include elements that reference the wedding — the same colours, a cake message that continues from the wedding cake, a photo display from the ceremony. The venue provides a space that feels as significant as the wedding events without requiring the same scale of coordination.",
-      packageRec: "The LoveFrame Rooftop (${formatPrice(6900)}) is particularly popular with newlyweds — the framed photo installation creates a visual record of the first celebration after the wedding. Golden Promise Glass House (${formatPrice(6000)}) suits couples who want an intimate, just-us continuation of the wedding mood.",
-    },
-    "for-engaged-couples": {
-      truth: "The engagement period is underappreciated romantically. The couple is past the proposal but before the wedding — in a sustained romantic anticipation. Celebrating during the engagement honours this specific phase and creates memories of a period that will be over once the wedding happens.",
-      specifics: "Engagement celebration setups at ${V} can be oriented toward the upcoming wedding — but many engaged couples prefer something that is purely about the present rather than in preparation for the future. A celebration of being engaged, not of being about-to-be-married.",
-      packageRec: "Eternal Love Rooftop (${formatPrice(6500)}) is popular with engaged couples — the canopy setup has a forward-looking quality, like a pavilion for things to come. The glass house options work well for couples who want an intimate, just-us celebration of the engagement itself.",
-    },
-    "for-dating-couples": {
-      truth: "Dating couples face a specific challenge in celebration: the pressure to impress is high, the budget constraints are often real, and the relationship is still establishing its rituals. A private venue celebration changes the dynamic completely — it removes the mediocre-restaurant ceiling and provides a genuinely remarkable experience at the same or lower cost.",
-      specifics: "The most consistent thing dating couples tell us after celebrating at ${V}: 'The setup made everything feel serious in the best way.' The private venue signals investment and intentionality — it communicates that the relationship is worth treating as a special occasion.",
-      packageRec: "Moonlit Romance Experience (${formatPrice(5100)}) is the most popular package for dating couples — it balances impressive setup with accessible pricing. The Promise Creative Area (${LOW}) is the best entry-level option for couples who want to experience the private venue concept before committing to a premium package.",
-    },
-    "for-long-term-couples": {
-      truth: "Long-term couples face the specific challenge of celebration fatigue — the sense that there is no occasion special enough to merit real effort, or that the effort of marking occasions has diminished over years. This is the celebration context where the environment matters most, because the emotional stakes require something genuinely new.",
-      specifics: "Long-term couple celebrations at ${V} work best when they deliberately break from routine. If you have been going to the same restaurant for years, the private venue is a rupture from that habit — it signals that this occasion is being treated differently. Couples who have been together for five or ten years report some of their most connected evenings at private celebration venues precisely because the setting removes the habitual from the occasion.",
-      packageRec: "Forever Us LoveFrame Rooftop (${formatPrice(6900)}) is particularly meaningful for long-term couples — the framing of the celebration has an intentional quality that suits the depth of a long relationship. For couples wanting something more intimate and reflective, the glass house options create the right atmosphere for a quieter, more introspective celebration.",
-    },
-  };
-
-  const rc = relationshipContext[ek.modifier] || {
-    truth: `Every stage of a relationship has its own character, and the way you celebrate should reflect who you are together at this specific point.`,
-    specifics: `Our team has extensive experience creating celebrations for couples at every stage — from first major date to golden anniversary.`,
-    packageRec: `All eight packages (${LOW} to ${formatPrice(6900)}) are available. We can recommend based on your relationship stage and what you want to communicate.`,
-  };
-
-  const truth = rc.truth.replace(/\$\{V\}/g, "Friends Factory Cafe");
-  const specifics = rc.specifics.replace(/\$\{V\}/g, "Friends Factory Cafe");
-  const pkgRec = rc.packageRec.replace(/\$\{V\}/g, "Friends Factory Cafe");
-
-  const intro = `Relationships are not generic, and neither are the celebrations that honour them. A celebration for newly-married couples is a different emotional event from the same celebration for long-term partners — the stakes, the tone, and the appropriate expression are all different. At ${V}, we understand this and design accordingly.\n\n${truth}\n\nPackages from ${LOW} include private venue, full decoration, food, drinks, and 3 hours.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `Celebrating ${mod}: The Specific Context`,
-      content: `${specifics}\n\n**What Changes for ${mod} Celebrations**:\n\nThe personalisation requests are different. The emotional register of the setup can be calibrated differently — more playful and energetic for early-stage relationships, more reflective and ceremonial for long-term ones. The music can be oriented differently. The cake message can say something specific to your stage rather than something generic.\n\nWhen you book, tell us where you are in your relationship and what you want the celebration to communicate. We will use that to make specific setup recommendations — within whatever package you choose.`,
-    },
-    {
-      heading: `Package Recommendations ${mod}`,
-      content: `${pkgRec}\n\n**Full Package Range for Your ${kwl}**:\n\nEvery package includes 3 hours private venue, complete decoration, welcome drinks, food menu, romantic music, and dedicated service. The difference between packages is decoration complexity and venue type, not quality of experience.\n\nAll packages: ${LOW} (base) to ${formatPrice(6900)} (Forever Us LoveFrame Rooftop with cake).`,
-    },
-    {
-      heading: `Booking Your ${kwl}`,
-      content: `WhatsApp ${PH} with your relationship stage context and what you are celebrating. Our team will recommend the most appropriate setup and package.\n\nLead time: 4–5 days for weekday slots, 7–10 days for weekends.\n\nThe most important thing to share when booking a ${kwl}: not just the occasion but what you want your partner to feel when they walk in. That emotional intention shapes the specific setup recommendations we make.\n\nTo book: WhatsApp ${PH}.`,
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateBookingContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const mod = ek.modifierLabel;
-
-  const bookingContext: Record<string, { headline: string; process: string; urgency: string }> = {
-    "same-day-booking": {
-      headline: "Same-day bookings are possible at ${V} — with important caveats about availability and setup time.",
-      process: `**Right now**: WhatsApp ${PH} and ask specifically about same-day availability. Mention your preferred time slot. Our team checks current bookings and responds immediately.\n\n**If available**: We confirm the slot and request advance payment via UPI within 30 minutes. From payment, our setup team begins preparation.\n\n**Minimum lead time**: We need at least 2–3 hours from booking confirmation to complete the decoration setup. A booking at 4 PM can be ready for a Late Night slot (10 PM). A booking at 1 PM can be ready for a Dinner slot (7 PM).\n\n**What same-day includes**: The same full decoration setup as advance bookings. We do not offer a reduced setup for same-day — if we confirm the booking, we execute it completely.`,
-      urgency: "Same-day availability is highest on weekday afternoons. Weekend same-day slots are rare — most weekends are fully booked 5–7 days in advance.",
-    },
-    "last-minute": {
-      headline: "Last-minute celebration planning at ${V} — what is realistic and how to make it happen.",
-      process: `**24–48 hours before**: WhatsApp ${PH} immediately. At this lead time, most weekday slots are still available. Weekend availability at 24–48 hours is limited but worth checking.\n\n**48+ hours before**: Very manageable. The slot is yours if it is available; personalization requests can be handled; cake can be ordered.\n\n**The actual last-minute reality**: "Last minute" for a private venue celebration means something different from restaurant reservations. We need 2–3 hours minimum to set up after booking confirmation. Plan accordingly.`,
-      urgency: "For genuinely urgent situations — a realised anniversary forgotten, a partner arriving unexpectedly — WhatsApp ${PH} immediately. We will tell you exactly what is possible and what we can execute in the available time.",
-    },
-    "advance-booking": {
-      headline: "Advance booking at ${V} — what it unlocks and why it consistently produces better celebrations.",
-      process: `**Why advance booking produces better outcomes**:\n\n*Date certainty*: Festival dates, Valentine's Day, weekends in November and December — these fill completely weeks in advance. Advance booking is the only way to guarantee these dates.\n\n*Personalization depth*: With more lead time, we can source specific decoration elements, create more elaborate personalised setups, and execute requests that require preparation time.\n\n*Cake orders*: Custom cakes require 3–5 days minimum for orders that involve specific design elements beyond standard writing.\n\n**Optimal booking window**: 5–7 days for weekday celebrations. 10–14 days for weekend celebrations. 2–3 weeks for Valentine's Day, Diwali, New Year, and Christmas.`,
-      urgency: "The slots that sell out first: Valentine's Day (February 14 and the surrounding week), New Year's Eve (December 31), Diwali night. These often fully book 3–4 weeks before the date.",
-    },
-    "online-booking": {
-      headline: "Booking your ${kwl} at ${V} is done entirely through WhatsApp — fast, direct, and conversational.",
-      process: `**The WhatsApp booking process**:\n\n**Step 1**: Send your initial message to ${PH}. Include: your preferred date, time slot preference, occasion you are celebrating, and approximate budget range.\n\n**Step 2**: Our team responds within minutes during operating hours (10 AM–11 PM daily) with availability confirmation and package recommendations.\n\n**Step 3**: You choose your package. We send you a booking confirmation with all details.\n\n**Step 4**: Advance payment via UPI or bank transfer confirms the booking. We send the venue address and what to expect.\n\n**Step 5**: Your celebration is locked. You share any personalisation details over WhatsApp in the days before — songs, cake message, colour preferences, surprise logistics.`,
-      urgency: "WhatsApp responses are typically within 5–15 minutes during operating hours. For urgent bookings, call the same number.",
-    },
-  };
-
-  const bc = bookingContext[ek.modifier] || bookingContext["online-booking"];
-  const headline = bc.headline.replace(/\$\{V\}/g, "Friends Factory Cafe");
-  const urgency = bc.urgency.replace(/\$\{V\}/g, "Friends Factory Cafe");
-
-  const intro = `${headline}\n\nPackages from ${LOW} include private venue, full decoration, food, drinks, and 3 hours of exclusive celebration.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `How ${mod} Works at ${V}`,
-      content: bc.process,
-    },
-    {
-      heading: `What to Know About Availability`,
-      content: `${urgency}\n\n**General Availability Patterns**:\n\nWeekday slots (Monday–Thursday): Consistently high availability. 3–4 days lead time is usually sufficient.\n\nFriday and Saturday evenings: Book 7–10 days ahead. These are our most demanded slots.\n\nSunday: Availability is between weekday and Saturday. 5–7 days ahead is recommended.\n\nDinner slot (7–10 PM): Our most popular time slot across all days. Books fastest.\n\nLate Night slot (10 PM–1 AM): Growing in popularity. Currently has better availability than Dinner for spontaneous bookings.\n\nLunch slot (12–3 PM): The highest availability slot, particularly on weekdays. Good for surprise celebrations where you want maximum flexibility.`
-    },
-    {
-      heading: `Payment and Policies`,
-      content: `**Advance Payment**: A small advance (typically ₹500–₹1,000) confirms your booking. The balance is paid on the day of the celebration.\n\n**Payment Methods**: UPI (GPay, PhonePe, Paytm), NEFT/IMPS bank transfer, or cash on the day.\n\n**Rescheduling**: Free rescheduling up to 48 hours before your booking. We understand that plans change, particularly for celebrations that depend on another person's availability.\n\n**Cancellation**: Cancellations 48+ hours before the booking: advance refunded minus a small processing fee. Cancellations under 48 hours: advance held as credit toward a future booking.\n\n**No Hidden Charges**: The package price quoted is the final price. No service charge, no mandatory gratuity, no decoration supplement.\n\nTo begin your ${kwl} booking: WhatsApp ${PH}.`,
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateAreaServiceContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const areaName = ek.areaName || "your area";
-
-  const intro = `For couples in ${areaName}, the question of where to celebrate a special occasion is a specific one: where, in a city you know, is there a private venue that is genuinely designed for romantic celebration — not a restaurant adapting its setup but a dedicated space? The answer that couples from ${areaName} consistently find is ${V} in Gotri.\n\nThe drive from ${areaName} is short. The experience waiting at the end of it is not.\n\nPackages from ${LOW}. Private venue, full decoration, food, drinks, 3 hours.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `Why Couples from ${areaName} Choose ${V}`,
-      content: `**The Access**: From ${areaName}, ${V} in Gotri is accessible via Vadodara's main road network — typically 10–25 minutes depending on your specific location within ${areaName} and the time of day. The drive is a short part of the evening, not the defining logistical challenge.\n\n**The Difference from Local Options**: The restaurants and cafes near ${areaName} offer genuinely different things — they serve meals in shared spaces, with other guests present, in environments not designed for private celebration. ${V} is designed for exactly this purpose. The comparison is not between two types of restaurants — it is between a restaurant and a private celebration venue.\n\n**Complete Service**: Couples from ${areaName} arrive, celebrate, and leave. Our team handles everything in between — decoration setup, food service, music, and coordination. There is nothing to arrange on your end except the arrival.\n\n**Pricing Accessible from ${areaName}**: From ${LOW}, with no hidden charges. The complete celebration — venue, decoration, food, drinks, music — is a single transparent price.`,
-    },
-    {
-      heading: `Getting from ${areaName} to ${V}`,
-      content: `**Address**: 424, OneWest, Asopalav W, 4th Floor, Priya Talkies Road, Gotri, Vadodara 391101.\n\n**Navigation**: Search "Friends Factory Cafe Vadodara" on Google Maps from your location in ${areaName}. The listing is verified and directions are current.\n\n**By Auto-Rickshaw**: Auto-rickshaws from ${areaName} can drop directly at the OneWest building. Ask for "OneWest, Priya Talkies Road, Gotri."\n\n**By Cab**: Uber and Ola service ${areaName} and the Gotri area. The pickup and drop point is the OneWest building.\n\n**Parking**: Street parking is available near the building for those driving from ${areaName}.\n\n**Building Access**: 4th floor, OneWest. Elevator available.\n\n**Surprise Coordination**: If you are bringing your partner from ${areaName} for a surprise, WhatsApp ${PH} when you are en route. We will have everything ready for immediate impact on arrival.`,
-    },
-    {
-      heading: `Booking Your ${kwl} from ${areaName}`,
-      content: `**How**: WhatsApp ${PH}. Mention you are from ${areaName} and the occasion you are celebrating. Our team will recommend the best package and time slot for your situation.\n\n**Available Packages**: All eight packages (${LOW} to ${formatPrice(6900)}) are available for couples coming from ${areaName}. No packages are restricted by area.\n\n**Lead Time**: 4–5 days for weekday slots. 7–10 days for weekends. Festival dates require 2–3 weeks advance booking.\n\nThe couples from ${areaName} who have celebrated at ${V} consistently report the same thing: the short drive was worth it, and the experience was unlike anything available in ${areaName} itself. To find out for yourself: WhatsApp ${PH}.`,
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
-
-function generateAreaKeywordContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
-  const kw = ek.title;
-  const kwl = kw.toLowerCase();
-  const areaName = ek.areaName || "your area";
-  const baseKw = ek.baseKeywordTitle || service.name;
-
-  const intro = `The search for ${kwl} is a hyperlocal search — it is asking for the best option within a defined radius of where you are. At ${V}, we serve couples from ${areaName} consistently, because the combination of accessibility and genuine quality that the search implies exists here.\n\n${baseKw} near ${areaName}: that means a private romantic celebration venue within a reasonable drive of where you are starting. From most locations in ${areaName}, ${V} in Gotri is 10–25 minutes. The celebration is 3 hours. The drive is a small fraction of the total.\n\nPackages from ${LOW}. Private venue, full decoration, food, drinks, 3 hours.`;
-
-  const sections: FFCContentSection[] = [
-    {
-      heading: `${baseKw} Near ${areaName}: What You Actually Need`,
-      content: `The "near ${areaName}" qualifier in a search for ${baseKw.toLowerCase()} is asking for convenience without compromise — the best option that does not require a journey that makes the occasion feel like a travel day rather than a celebration.\n\n${V} satisfies both requirements. It is accessible from ${areaName} without significant effort, and it is genuinely the best private romantic celebration venue in Vadodara by the most meaningful measures: consistent quality across thousands of celebrations, transparent pricing, complete privacy, and a team that has done this enough times to execute it reliably.\n\n**Why Couples from ${areaName} Consistently Find ${V}**:\n\n*The search surfaces it*: Verified Google listing, strong review volume, accurate location information.\n\n*The experience matches the search intent*: When someone searches for ${baseKw.toLowerCase()} near ${areaName}, they are looking for a private, designed, complete celebration experience. That is exactly what ${V} delivers.\n\n*The price is accessible*: Starting from ${LOW}, with everything included, the price point is realistic for couples from ${areaName} across income levels.`,
-    },
-    {
-      heading: `Packages for Your ${kwl}`,
-      content: `**Forever Us LoveFrame Rooftop — ${formatPrice(6900)}**: The signature package. LoveFrame installation, rooftop venue, city views, complimentary cake. The most complete celebration we offer. Worth the drive from ${areaName}.\n\n**Eternal Love Rooftop — ${formatPrice(6500)}**: Canopy rooftop setup. Complimentary cake. The open-air, elevated experience that couples from ${areaName} make the short drive for.\n\n**Golden Promise Glass House — ${formatPrice(6000)}**: The glass house experience — architectural, intimate, photographic. Complimentary cake.\n\n**Mid-Range Options — ${formatPrice(5100)} to ${formatPrice(5700)}**: Complete celebration setups at accessible price points. The core experience is present at every tier.\n\n**Starting from ${LOW}**: Complete private celebration experience. The full venue, the full decoration, the full food and drink menu.\n\nAll packages: 3 hours private venue, complete decoration, welcome drinks, food menu, romantic music, dedicated service.`,
-    },
-    {
-      heading: `Booking Your ${kwl}`,
-      content: `**How**: WhatsApp ${PH}. Share your preferred date, occasion, and which area you are coming from. Our team confirms availability and recommends the best package.\n\n**Getting Here from ${areaName}**: Search "Friends Factory Cafe Vadodara" on Google Maps. Directions are accurate from any point in ${areaName}.\n\n**Surprise Coordination**: If you are planning a surprise for your partner and managing logistics from ${areaName}, WhatsApp ${PH} early. We help coordinate the timing so that your arrival and the setup completion align.\n\n**Lead Time**: 4–5 days for weekday slots. 7–10 days for weekend slots.\n\nThe answer to ${kwl}: it is in Gotri, accessible from ${areaName}, and it delivers the private romantic celebration experience the search is looking for. WhatsApp ${PH} to begin.`,
-    },
-  ];
-
-  return buildResult(ek, service, intro, sections);
-}
+// ==================== SHARED OPENINGS ====================
+
+const OPENINGS = [
+  (kw: string) => `Looking for the perfect ${kw} in ${C}? ${V} has been the go-to romantic celebration venue for couples across ${C} since 2019. With our private rooftop and glass house setups, every celebration becomes a cherished memory.`,
+  (kw: string) => `Your search for the best ${kw} in ${C} ends here! At ${V}, we create magical moments for couples with stunning decorations, private venues, and all-inclusive packages starting from ${LOW}.`,
+  (kw: string) => `${V} invites you to experience the most romantic ${kw} in ${C}. Our exclusive rooftop venue with panoramic city views transforms into the perfect setting for your celebration.`,
+  (kw: string) => `Discover why over 3,000 couples have chosen ${V} for their ${kw} in ${C}. Private venue, gorgeous decorations, delicious food, and memories that last forever — all from ${LOW}.`,
+  (kw: string) => `Make your ${kw} in ${C} absolutely unforgettable! ${V} offers an exclusive romantic experience with private rooftop celebrations, themed decorations, and personalized touches.`,
+  (kw: string) => `Planning a special ${kw} in ${C}? ${V} is ${C}'s most trusted romantic celebration venue. Our 100% private rooftop and glass house venues are perfect for creating magical moments.`,
+];
 
 // ==================== RESULT BUILDER ====================
 
@@ -1227,82 +358,1405 @@ function buildResult(
   const kwl = kw.toLowerCase();
   const h = hash(ek.slug);
 
-  const whyChooseUs = [
-    `100% private venue – exclusively yours for your ${kwl}`,
-    `8 unique celebration packages from ${LOW} to ${HIGH}`,
-    `Stunning rooftop views & elegant glass house options`,
-    `All-inclusive packages – decorations, food, drinks, music`,
-    `Professional setup handled by our team – zero stress for you`,
-    `Trusted by 3,000+ ${C} couples with 4.9★ Google rating`,
-    `Easy access from all ${C} areas – located in Gotri`,
-    `Quick WhatsApp booking at ${PH} with instant confirmation`,
-  ];
+  // 1. Shuffled whyChooseUs (Deterministic, picks 6 from 15)
+  const whyChooseUsPool = WHY_CHOOSE_US_POOL.map(w => w.replace(/\$\{V\}/g, V).replace(/\$\{C\}/g, C).replace(/\$\{PH\}/g, PH).replace(/celebration/g, kwl));
+  const whyChooseUs = shuffleDeterministic(whyChooseUsPool, ek.slug).slice(0, 6);
 
-  const process = [
-    { step: "Contact Us", description: `WhatsApp ${PH} to discuss your ${kwl}` },
-    { step: "Choose Package", description: `Select from 8 packages (${LOW} to ${HIGH})` },
-    { step: "Confirm Booking", description: "Pay advance to lock your date and time" },
-    { step: "Personalize", description: "Share custom requests — colors, songs, cake message" },
-    { step: "Celebrate", description: "Arrive to a beautifully prepared venue and enjoy!" },
-  ];
+  // 2. Shuffled and customized FAQ pool (picks 4 from 30)
+  const faqGroupKey = getFaqGroup(ek.dimension);
+  const faqPool = FAQ_POOLS[faqGroupKey] || FAQ_POOLS.process;
+  const selectedFaqs = shuffleDeterministic(faqPool, ek.slug).slice(0, 4);
 
-  const testimonialTemplates = [
-    `"Our ${kwl} at ${V} was absolutely magical! The decorations, food, and ambiance were perfect. My partner couldn't stop smiling!" — Happy Couple, ${C}\n\n"We've celebrated at many places but nothing compares to ${V}. The privacy and attention to detail for our ${kwl} was outstanding." — Returning Customer\n\n"Best decision we made! The ${kwl} setup was even better than we imagined. Highly recommend to every couple in ${C}!" — 5-Star Review`,
-    `"I planned a surprise ${kwl} and the team helped coordinate everything perfectly. My partner was completely speechless!" — Grateful Partner, ${C}\n\n"The rooftop ambiance during our ${kwl} was incredible. Fairy lights, candles, city views — absolutely romantic!" — Weekend Celebrator\n\n"Affordable yet premium — our ${kwl} experience proved you don't need to spend a fortune for an unforgettable celebration." — Value-Conscious Couple`,
-    `"From booking to celebration, the entire ${kwl} experience was seamless. The WhatsApp communication was quick and helpful." — First-Timer, ${C}\n\n"We keep coming back to ${V} for every celebration. Our latest ${kwl} was our 4th time here — that says everything!" — Loyal Customer\n\n"The food, decorations, and service during our ${kwl} exceeded every expectation. Already planning our next visit!" — Delighted Couple`,
-  ];
+  // 3. Shuffled process steps
+  const process = getProcess(ek.slug, ek.dimension);
 
-  const faqContent = [
-    { question: `How much does ${kwl} cost?`, answer: `Packages range from ${LOW} to ${HIGH}. All include private venue, decorations, food, drinks, music, and 3 hours of celebration. No hidden charges.` },
-    { question: `Can I customize my ${kwl}?`, answer: `Yes! Custom color themes, cake messages, song playlists, and personalized decorations are available. Share your preferences when booking.` },
-    { question: `Is the venue private for ${kwl}?`, answer: `100% private. No other guests during your 3-hour celebration. The rooftop or glass house is exclusively yours.` },
-    { question: `How do I book ${kwl}?`, answer: `WhatsApp ${PH} with your preferred date, time, and occasion. We'll recommend the best package and confirm with a small advance payment.` },
-    { question: `What food is included in ${kwl} packages?`, answer: `Welcome drinks, cheese fondue, paneer tortilla, peri peri fries with mac & cheese, chocolate brownie, and signature mocktails. Veg and Jain options available.` },
-    { question: `Can I plan a surprise ${kwl}?`, answer: `Absolutely! We help coordinate surprise reveals — timing, setup, and even cover stories. We've successfully executed 500+ surprise celebrations.` },
-  ];
+  // 4. Testimonial Selection
+  const selectedTestimonial = TESTIMONIALS[h % TESTIMONIALS.length];
 
-  const closingCta = `Ready for your perfect ${kwl} in ${C}? Don't wait — book your celebration at ${V} today! WhatsApp ${PH} for instant response and availability.
+  // 5. Closing CTA Tone
+  const closingCta = CLOSING_CTAS[h % CLOSING_CTAS.length];
 
-Every celebration at ${V} is a memory that lasts forever. With private venues, stunning decorations, delicious food, and packages from ${LOW}, your ${kwl} will be absolutely unforgettable.`;
+  // Synthesize everything to apply dynamic variations
+  const synthesizedSections = sections.map((s) => ({
+    heading: synthesizeText(s.heading, ek.slug, 12),
+    content: synthesizeText(s.content, ek.slug, 28),
+  }));
 
-  const dimensionColors: Record<KeywordDimension, FFCKeywordContent['colorScheme']> = {
-    budget:           'amber',
-    time:             'purple',
-    theme:            'rose',
-    festival:         'orange',
-    milestone:        'indigo',
-    venue:            'teal',
-    qualifier:        'green',
-    howto:            'blue',
-    seasonal:         'emerald',
-    style:            'pink',
-    nearme:           'sky',
-    price:            'violet',
-    relationship:     'red',
-    booking:          'cyan',
-    'area-service':   'teal',
-    'area-keyword':   'sky',
+  const synthesizedWhyChooseUs = whyChooseUs.map((w) => synthesizeText(w, ek.slug, 43));
+  const synthesizedProcess = process.map((p) => ({
+    step: p.step,
+    description: synthesizeText(p.description, ek.slug, 54),
+  }));
+
+  const synthesizedTestimonial = synthesizeText(selectedTestimonial, ek.slug, 71);
+
+  const synthesizedFaqs = selectedFaqs.map((faq) => ({
+    question: synthesizeText(faq.question, ek.slug, 88),
+    answer: synthesizeText(faq.answer, ek.slug, 99),
+  }));
+
+  const synthesizedClosingCta = synthesizeText(closingCta, ek.slug, 115);
+  const synthesizedIntro = synthesizeText(intro, ek.slug, 137);
+
+  const dimensionColors: Record<KeywordDimension, FFCKeywordContent["colorScheme"]> = {
+    budget: "amber",
+    time: "purple",
+    theme: "rose",
+    festival: "orange",
+    milestone: "indigo",
+    venue: "teal",
+    qualifier: "green",
+    howto: "blue",
+    seasonal: "emerald",
+    style: "pink",
+    nearme: "sky",
+    price: "violet",
+    relationship: "red",
+    booking: "cyan",
+    "area-service": "teal",
+    "area-keyword": "sky",
   };
 
   return {
-    introduction: intro,
-    sections,
-    whyChooseUs,
-    process,
-    testimonialContent: testimonialTemplates[h % testimonialTemplates.length],
+    introduction: synthesizedIntro,
+    sections: synthesizedSections,
+    whyChooseUs: synthesizedWhyChooseUs,
+    process: synthesizedProcess,
+    testimonialContent: synthesizedTestimonial,
     pricingIntro: `${kwl} packages start from ${LOW}. All packages include private venue, decorations, food, drinks, and 3 hours of celebration.`,
-    faqContent,
-    closingCta,
-    colorScheme: dimensionColors[ek.dimension] ?? 'amber',
+    faqContent: synthesizedFaqs,
+    closingCta: synthesizedClosingCta,
+    colorScheme: dimensionColors[ek.dimension] ?? "amber",
   };
 }
 
+// ==================== GENERATORS (With 5 structural angles each) ====================
+
+function generateBudgetContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const isBudget = ["affordable", "budget", "budget-friendly", "low-cost"].includes(ek.modifier);
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `[syn: Planning a romantic surprise shouldn't require financial stress | A premium celebration doesn't have to carry a premium price tag]. At ${V}, we design ${kwl} experiences to ensure you get maximum visual value.`;
+    sections = [
+      {
+        heading: `[syn: Cost Breakdown for | Detailed Pricing of] ${mod} ${service.name}`,
+        content: isBudget
+          ? `[syn: Our budget arrangements start at just ${LOW} for 3 hours of complete private venue access | Starting from ${LOW}, we cover all-inclusive decoration, food, and music setups].`
+          : `[syn: Our premium packages reach up to ${HIGH} for our most elaborate rooftop setups | Flagship configurations at ${HIGH} include high-density balloon canopy and customized cakes].`
+      },
+      {
+        heading: `[syn: What You Actually Receive | All-Inclusive Features]`,
+        content: `[syn: Every package covers private venue hire, themed styling, table dinner, and dedicated assistance | There are no hidden fees or extra charges added at checkout, keeping pricing transparent].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Choosing between experience quality and cost is a common hurdle for couples | Many worry that value pricing means compromising on the romantic environment]. At ${V}, we dismantle this idea.`;
+    sections = [
+      {
+        heading: `[syn: Value vs Public Dining | Why Private is Better]`,
+        content: `[syn: A standard restaurant charges similar rates for a busy shared table with constant noise | We offer 100% booking exclusivity where the entire space is yours for 3 hours].`
+      },
+      {
+        heading: `[syn: Budget Planning Tips for Couples | Maximizing Your Investment]`,
+        content: `[syn: Consider booking weekday slots for better theme flexibility and coordinate custom Spotify playlists | Choose packages like Moonlit Romance at ${formatPrice(5100)} to get an incredible balance of styling density].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: If you are searching for the best ${kwl} options, clear detail is key | Let's review the physical elements and decorations included in your setup]. We provide complete transparency.`;
+    sections = [
+      {
+        heading: `[syn: Decor Inclusions and Venue Setup | Styling Specifics]`,
+        content: `[syn: Rest assured that we prepare every package with warm fairy lights, candles, and customizable signs | Our design team spends 2-3 hours handcrafting the setup before you and your partner arrive].`
+      },
+      {
+        heading: `[syn: Food and Drink Packages | Culinary Offerings]`,
+        content: `[syn: The dining menu is identical across tiers: cheese fondue, paneer wraps, peri peri fries, and dessert | All dishes are prepared fresh in our kitchen and served hot at your private table].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: A persistent myth is that romance is measured by the total cost | Many believe a beautiful date requires spending a small fortune]. We show that intimacy is about attention.`;
+    sections = [
+      {
+        heading: `[syn: The Psychology of Private Celebrations | Focus on Intimacy]`,
+        content: `[syn: A memorable date is defined by how personal it felt, not the price tag | The quiet environment, a customized letter board, and your partner's favorite songs create the magic].`
+      },
+      {
+        heading: `[syn: Choosing Your Tier Wisely | Package Selection Guide]`,
+        content: `[syn: For simple dates, select our ₹4,700 Pure Love Glass House | For grand milestone surprises, our ₹6,000+ packages offer custom cakes and photo frames].`
+      }
+    ];
+  } else {
+    intro = `[syn: Evaluating different package rates in Vadodara can be confusing | Here is a side-by-side comparison of options for your ${kwl}]. We offer 8 configurations to match your budget.`;
+    sections = [
+      {
+        heading: `[syn: Rooftop vs Glass House Costs | Venue Comparison]`,
+        content: `[syn: Outdoor rooftop terraces offer skyline views and breeze | Climate-controlled Glass House setups provide intimate glass-enclosed spaces]. Both options are fully private during your booking.`
+      },
+      {
+        heading: `[syn: Booking Guidelines and Deposit Policy | How to Reserve]`,
+        content: `[syn: Lock your slot with a small advance deposit via UPI and pay the balance on the day | Message ${PH} on WhatsApp to check slot availability for your date instantly].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateTimeContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `[syn: The timing of your date changes everything about the atmosphere | Most couples treat scheduling as logistical, but it is actually sensory]. The time slot you choose shapes your ${kwl}.`;
+    sections = [
+      {
+        heading: `[syn: Sensory Transitions of the | How Timing Changes the] ${mod} Slot`,
+        content: `[syn: Our private spaces respond beautifully to the hour | A morning booking feels clean and alert, while midnight brings deep silence and glowing city lights].`
+      },
+      {
+        heading: `[syn: Lighting and Decoration Adjustments | Custom Ambiance]`,
+        content: `[syn: Our setup team automatically adjusts candle counts and fairy light levels based on your slot | Candles act as accents in daytime but become the primary warm light source during night bookings].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Professional photographers pay for the quality of natural light | The hour of your celebration dictates the texture of your photos]. Let's examine the photography science of your slot.`;
+    sections = [
+      {
+        heading: `[syn: Photography Guide: Golden Hours & Contrast | Capturing the Moment]`,
+        content: `[syn: Late afternoon slots provide soft horizontal lighting that minimizes shadows | Evening and night bookings create high-contrast portrait backdrops with warm candle highlights].`
+      },
+      {
+        heading: `[syn: Camera Angles & Lighting Tips | Picture-Perfect Frames]`,
+        content: `[syn: Utilize the reflective glass panels of the Glass House or frame portraits against the city skyline | Our team coordinates lighting transitions so you can capture memory keepsakes easily].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Human biochemistry responds strongly to circadian rhythms | Celebrations at different hours trigger distinct emotional responses]. We design the scheduling around connection.`;
+    sections = [
+      {
+        heading: `[syn: Emotional Biology: Morning vs Night | Psychological States]`,
+        content: `[syn: Morning dates cortisol levels make couples feel present and conversational | Late night dopamine releases narrow attention to the immediate moment, heightening romance].`
+      },
+      {
+        heading: `[syn: Creating a Relaxing Escape | Breaking the Day]`,
+        content: `[syn: Midday slots offer a physical and mental break from routine, making the date feel like a mini-vacation | You return to your day recharged and focused on each other].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: Understanding the details of your scheduled slot ensures a seamless experience | Here is a breakdown of what changes by hour for your ${kwl}]. We coordinate everything.`;
+    sections = [
+      {
+        heading: `[syn: Hour-by-Hour Venue Behavior | Practical Details]`,
+        content: `[syn: Morning slots (11 AM - 2 PM) offer high date availability and fresh air | Peak dinner slots (7 PM - 10 PM) are highly demanded, requiring early booking].`
+      },
+      {
+        heading: `[syn: Late Night and Countdown Specifics | Midnight Surprises]`,
+        content: `[syn: For birthday countdowns, our 10 PM - 1 AM slot is specifically designed | We coordinate the exact midnight reveal, music shift, and cake cutting with precision].`
+      }
+    ];
+  } else {
+    intro = `[syn: Let's follow a couple's journey during a standard 3-hour slot | Here is what to expect from arrival to departure during your ${kwl}]. It is a choreographed experience.`;
+    sections = [
+      {
+        heading: `[syn: The Arrival and Surprise Reveal | First Impressions]`,
+        content: `[syn: You arrive to find the decorations fully set up and music playing | The surprise is instant, as the private entrance keeps the setup hidden until the door opens].`
+      },
+      {
+        heading: `[syn: Dining, Relaxation, and Departure | Flow of the Event]`,
+        content: `[syn: Welcome mocktails lead into a multi-course hot dinner served quietly | You have ample private time to talk, connect, play songs, and take photos before check-out].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateThemeContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `[syn: A theme is not just decorations; it is an immersive sensory environment | The aesthetic theme you choose establishes the entire character of your date]. We bring customized design to your ${kwl}.`;
+    sections = [
+      {
+        heading: `[syn: Design Coherence and Layering | The Styling Philosophy]`,
+        content: `[syn: Every prop, balloon, and fabric drape serves a singular visual purpose | We build depth using multi-level decorations, from overhead fairy canopy lights to floor candles].`
+      },
+      {
+        heading: `[syn: Saturated Color Palettes | Creating Visual Backgrounds]`,
+        content: `[syn: The specific color scheme establishes the immediate mood upon entry | We coordinate all elements to match your selected colors, avoiding chaotic clashing designs].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Walking into a fully realized visual space triggers a sense of wonder | The moment of reveal is the emotional anchor of the evening]. We focus on creating high-impact surprises.`;
+    sections = [
+      {
+        heading: `[syn: The Surprise Reveal Experience | Emotional Transitions]`,
+        content: `[syn: Keeping the theme choice secret from your partner maximizes the surprise | The transition from the commercial building lobby to a romantic private oasis is stunning].`
+      },
+      {
+        heading: `[syn: Custom Signs and Letter Boards | Personalizing the Space]`,
+        content: `[syn: We feature customized names and anniversary messages on centerboards | Share your text and songs on WhatsApp to make the space feel uniquely yours].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Capturing memory photos in a themed environment requires some planning | Let's review the best ways to photograph your custom setup]. The design is camera-ready.`;
+    sections = [
+      {
+        heading: `[syn: Photography Angles & Lighting Tips | Instagram-Ready Details]`,
+        content: `[syn: Position portraits against our main backlight frames or balloon arches | Warm fairy lighting provides a natural glowing filter, making skin tones soft and warm].`
+      },
+      {
+        heading: `[syn: Utilizing reflections and Glass Panels | Visual Tricks]`,
+        content: `[syn: The Glass House walls multiply candlelight reflections, creating a panoramic depth | Use these angles to capture clean, romantic frames with standard smartphones].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: Colors have direct psychological effects on mood and comfort | Restraint in design is the secret to a sophisticated romantic environment]. We use color theory intentionally.`;
+    sections = [
+      {
+        heading: `[syn: Color Psychology in Romantic Setup | Visual Warmth]`,
+        content: `[syn: Warm golds and reds stimulate comfort and excitement, while pastels create calm | We balance vibrant neon colors with soft drapes to prevent sensory fatigue].`
+      },
+      {
+        heading: `[syn: Restraint and Focus in Design | Clean Sophistication]`,
+        content: `[syn: We avoid generic plastic clutter in favor of clean lines and quality fabrics | This restraint ensures that focus stays on your partner, not the decorations].`
+      }
+    ];
+  } else {
+    intro = `[syn: Choosing the right theme can seem challenging with 15+ options | Here is a guide to selecting the theme that matches your relationship personality]. We help you coordinate.`;
+    sections = [
+      {
+        heading: `[syn: Matching Theme to Partner Style | Selection Guide]`,
+        content: `[syn: Choose Bollywood for cinematic romantic gestures and dramatic drapes | Select Minimalist or White themes for modern, clean, and elegant layouts].`
+      },
+      {
+        heading: `[syn: Custom Requests and Add-ons | WhatsApp Coordination]`,
+        content: `[syn: You can request minor modifications to balloon colors and drapes via WhatsApp | Booking early ensures our design crew has all elements ready for your slot].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateFestivalContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `[syn: Festive days carry a unique celebratory energy in the city | Celebrating during a public holiday adds a shared layer to your date]. A ${kwl} combines cultural joy with couple privacy.`;
+    sections = [
+      {
+        heading: `[syn: Blending Tradition and Private Romance | Festive Context]`,
+        content: `[syn: While the entire city participates in the festival, your celebration remains 100% private | We integrate subtle festive motifs without cluttering the romantic atmosphere].`
+      },
+      {
+        heading: `[syn: Customized Festive Touches | Specialized Styling]`,
+        content: `[syn: From special diyas on Diwali to rose accents during Valentine's, we customize the space | Playlists are curated to reflect the emotional theme of the day].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Vadodara's local community celebrates festivals with great enthusiasm | Public events can often be crowded and noisy for couples]. We offer a quiet alternative.`;
+    sections = [
+      {
+        heading: `[syn: Escaping the Holiday Crowds | Peaceful Celebrations]`,
+        content: `[syn: Avoid noisy public dining spaces and crowded restaurants on festive nights | Secure exclusive access to the rooftop or Glass House for a calm, distraction-free evening].`
+      },
+      {
+        heading: `[syn: Local Vadodara Traditions | Community Vibrancy]`,
+        content: `[syn: Enjoy the skyline fireworks on Diwali or the cool breeze on festive winter nights | The city backdrop adds ambient beauty while you dine in peace].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Many couples have established traditions around celebrating major holidays here | Let's share some stories of festive dates at our venue]. It creates an annual landmark.`;
+    sections = [
+      {
+        heading: `[syn: Couples' Stories and Annual Landmarks | Creating Rituals]`,
+        content: `[syn: Celebrating on the same holiday each year creates a beautiful relationship record | Couples report that booking a private slot makes the holiday feel doubly significant].`
+      },
+      {
+        heading: `[syn: Surprise Entries on Festive Nights | Coordinate the Reveal]`,
+        content: `[syn: Surprising your partner on a holiday requires coordination with city traffic | WhatsApp us when you start driving so we can ensure everything is aligned for your arrival].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: Booking a private venue during major festivals requires early planning | Let's review availability patterns for key calendar dates]. Slots book fast.`;
+    sections = [
+      {
+        heading: `[syn: Peak Holiday Booking Windows | Slot Availability]`,
+        content: `[syn: Dates like February 14, December 31, and Diwali night book out weeks in advance | We recommend locking your slot 14-21 days ahead for major festivals].`
+      },
+      {
+        heading: `[syn: Package Customization for Holidays | Special inclusions]`,
+        content: `[syn: Festival packages include themed welcome drinks and custom messages on desserts | Select tiers include a complimentary cake styled for the occasion].`
+      }
+    ];
+  } else {
+    intro = `[syn: Choose the ideal package for your holiday celebration | Here is how to select the right setup for a festive date]. We guide you through the options.`;
+    sections = [
+      {
+        heading: `[syn: Rooftop Canopy vs Glass House for Holidays | Selection]`,
+        content: `[syn: Outdoor rooftop canopies are perfect for fireworks and sky views | The Glass House offers cozy, weather-proof security during monsoons or winter cold].`
+      },
+      {
+        heading: `[syn: Booking Checklist and WhatsApp Coordination | Next Steps]`,
+        content: `[syn: Connect with our support team at ${PH} to verify available slots | A small UPI deposit secures the date, leaving you stress-free].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateMilestoneContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `[syn: Relationship milestones carry the weight of shared history and commitment | Marking a milestone date is an opportunity to reflect on your journey]. We specialize in celebratory dates.`;
+    sections = [
+      {
+        heading: `[syn: The Psychology of Milestone Celebrations | Reflecting on Time]`,
+        content: `[syn: A milestone is a pause in ordinary life to honor what you have built together | The quiet, private environment allows you to talk and remember key moments].`
+      },
+      {
+        heading: `[syn: Custom Details for Your Milestone | Specialized Touches]`,
+        content: `[syn: We feature custom anniversary cake messages and numeric neon signs | Share photos for our LoveFrame display to showcase your relationship timeline].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Every milestone stage of a relationship has a different emotional character | A first anniversary has different stakes than a tenth anniversary]. We adapt the atmosphere.`;
+    sections = [
+      {
+        heading: `[syn: Customizing for Your Specific Stage | Tailoring the Night]`,
+        content: `[syn: Early-stage milestones are often playful and photo-focused | Long-term marriage milestones focus on deep privacy, soft music, and quiet reflection].`
+      },
+      {
+        heading: `[syn: Recommended Package Tiers | Setup Selection]`,
+        content: `[syn: The Forever Us LoveFrame package is ideal for showcasing years of photos | Choose Glass House setups for high intimacy and distraction-free dining].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Shared emotional experiences encode more strongly in long-term memory | A private celebration is designed to be an anchor memory]. Let's review memory encoding science.`;
+    sections = [
+      {
+        heading: `[syn: The Science of Anchor Memories | Emotional Coding]`,
+        content: `[syn: Novel environments separate from daily routine trigger stronger mental records | Arriving to a beautifully lit rooftop canopy makes the evening stand out forever].`
+      },
+      {
+        heading: `[syn: Capturing Photo Keepsakes | Visual Records]`,
+        content: `[syn: Take photos that you will look back on during future anniversaries | Our illuminated frames and background city views create perfect photographic memories].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: Designing a personal ritual during your date increases its emotional value | Many couples use milestones to set future intentions together]. We help you design these details.`;
+    sections = [
+      {
+        heading: `[syn: Designing Personal Relationship Rituals | Writing Letters]`,
+        content: `[syn: Write letters to your future selves to be opened at the next major milestone | This simple ritual adds a meaningful layer of intention to the celebration].`
+      },
+      {
+        heading: `[syn: Music and Playlists as Memory Anchors | Auditory Memory]`,
+        content: `[syn: Choose songs that were playing during key moments of your relationship | Connecting via Bluetooth allows you to control the auditory backdrop of the night].`
+      }
+    ];
+  } else {
+    intro = `[syn: Planning a milestone surprise requires careful logistical coordination | Here is our step-by-step checklist to ensure everything runs perfectly]. We manage the details.`;
+    sections = [
+      {
+        heading: `[syn: The Pre-Booking Checklist | Surprise Logistics]`,
+        content: `[syn: Confirm the date and preferred slot (Dinner slot books first) | Share the exact names and messages for printing at least 2 days prior].`
+      },
+      {
+        heading: `[syn: Surprise Entries and Reveal Coordination | The Entry Moment]`,
+        content: `[syn: Send us a text when you are 10 minutes away from Gotri | Our staff coordinates the entry so the lights and music activate as you walk in].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateVenueContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `[syn: The physical space dictates how comfortably you can connect | A premium venue must balance design aesthetics with functional privacy]. At ${V}, we prioritize both.`;
+    sections = [
+      {
+        heading: `[syn: Architectural Design of the Space | Rooftop & Glass House]`,
+        content: `[syn: Our 4th-floor venue features a panoramic rooftop and an indoor Glass House | The Glass House is enclosed in clean glass-walled panels that block external noise].`
+      },
+      {
+        heading: `[syn: Ensuring 100% Booking Privacy | Zero Public Access]`,
+        content: `[syn: Unlike restaurants that only offer corner tables, we guarantee complete exclusivity | The entire booked space is reserved for your slot, ensuring no onlookers].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Capturing clean photos requires a venue designed for camera angles | Lighting reflections can turn standard photos into professional portraits]. Let's explore our photo spots.`;
+    sections = [
+      {
+        heading: `[syn: Photography Venue Guide: Reflections & Skylines | Photo Spots]`,
+        content: `[syn: The Glass House walls multiply candlelight, creating a glowing depth effect | Frame skyline portraits against the city views from the open rooftop terrace].`
+      },
+      {
+        heading: `[syn: Lighting Design: Candles & Fairy Lights | Visual Glow]`,
+        content: `[syn: We use real candles for table warmth and safe LEDs for pathways | Fairy lights are structured at multiple heights to mimic floating starlight].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Environmental design affects emotional comfort and conversation | A private venue must create a sensory escape from the city]. We focus on ambient comfort.`;
+    sections = [
+      {
+        heading: `[syn: Sensory Immersion: Breeze, Music, and Warmth | Ambient Vibe]`,
+        content: `[syn: Soft breeze on the rooftop terrace adds physical freshness to the date | Sound systems play clear background music at a volume that supports conversation].`
+      },
+      {
+        heading: `[syn: Escape from the Urban Noise | Quiet Sanctum]`,
+        content: `[syn: Situated on the 4th floor, we are removed from immediate street-level traffic | You celebrate in a quiet commercial building with professional security].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: Seasonal changes dictate which venue layout is most comfortable | Vadodara's weather varies from monsoons to hot summers]. We have options for all seasons.`;
+    sections = [
+      {
+        heading: `[syn: Weather Protection: Monsoon-Proof Glass House | Seasonal Options]`,
+        content: `[syn: The Glass House is fully climate-controlled, keeping you dry and cool | Watch the monsoon rain through glass walls while staying warm and comfortable].`
+      },
+      {
+        heading: `[syn: Rooftop Canopies for Cooler Months | Winter Skyline]`,
+        content: `[syn: Open-air rooftop terrace slots are highly popular during winter and evening golden hours | Enjoy the sunset breeze and starlit skies in comfort].`
+      }
+    ];
+  } else {
+    intro = `[syn: Logistical details ensure a smooth arrival for you and your partner | Here is what you need to know about building access and parking]. We coordinate transit.`;
+    sections = [
+      {
+        heading: `[syn: Building Access, Parking, and Elevator | Transit Details]`,
+        content: `[syn: Ample street parking is available directly in front of the OneWest building | Take the 24/7 elevator directly to the 4th floor for easy access].`
+      },
+      {
+        heading: `[syn: Booking Coordination and WhatsApp Pin | Next Steps]`,
+        content: `[syn: Share your preferred venue type (Rooftop vs Glass House) on WhatsApp | We send direct Google Maps pin links upon booking confirmation].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateQualifierContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `[syn: Choosing the best venue requires looking at verified track records | Trust is built on consistent quality, not generic promises]. At ${V}, we hold a 4.9-star rating.`;
+    sections = [
+      {
+        heading: `[syn: Verified 4.9★ Rating and Customer Trust | Rating Audit]`,
+        content: `[syn: Over 3,000 couples have celebrated anniversaries and proposals with us since 2019 | Consistent reviews highlight our attention to detail, food quality, and absolute privacy].`
+      },
+      {
+        heading: `[syn: Why Experience Matters in Surprise Events | Flawless execution]`,
+        content: `[syn: A surprise date has only one chance to run perfectly; timing cannot be repeated | Our experienced team coordinates music, lights, and entries with choreography].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Evaluating romantic options in Vadodara reveals clear differences | Let's compare dedicated private venues with standard dining spots]. We focus on exclusivity.`;
+    sections = [
+      {
+        heading: `[syn: Comparing Private Venues vs Restaurants | Exclusivity Audit]`,
+        content: `[syn: Restaurants serve food in shared halls with public noise and onlookers | We reserve the entire Glass House or rooftop terrace for your 3-hour slot].`
+      },
+      {
+        heading: `[syn: Pricing Transparency vs Hidden Surcharges | Cost Audit]`,
+        content: `[syn: Many spots add surprise decor charges or service taxes at checkout | Our flat rates are fully inclusive of decorations, food, drinks, and taxes].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Customer feedback highlights the specific reasons couples recommend us | Let's review the main themes in our reviews]. We focus on decoration and service.`;
+    sections = [
+      {
+        heading: `[syn: Praise for Decoration Quality and Aesthetics | Review Analysis]`,
+        content: `[syn: Clients consistently praise the balloon canopy density and illuminated photo frames | The setups match the photos shown online, ensuring zero disappointment].`
+      },
+      {
+        heading: `[syn: Feedback on Food Quality and Freshness | Menu Review]`,
+        content: `[syn: Reviews note that our cheese fondue, paneer wraps, and brownies are served hot | Food is prepared fresh in our kitchen, not sourced from outside vendors].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: Defining what "best" means in the context of dates is subjective | We believe the best celebration combines visual styling, privacy, and ease]. We balance these elements.`;
+    sections = [
+      {
+        heading: `[syn: The Three Pillars of a Great Date | Our Core Promise]`,
+        content: `[syn: True privacy allows partners to talk freely without public distractions | Elegant theme styling creates immediate romantic atmosphere and photo keepsakes].`
+      },
+      {
+        heading: `[syn: Seamless Booking and Coordination | Hassle-Free Planning]`,
+        content: `[syn: The third pillar is ease: lock slots on WhatsApp in 5 minutes and let our team handle setup | No stress, no effort, just arrive and enjoy the date].`
+      }
+    ];
+  } else {
+    intro = `[syn: We stand behind the quality of every celebration we host | Here is our guarantee for your upcoming special date]. We ensure satisfaction.`;
+    sections = [
+      {
+        heading: `[syn: Our Commitment to Flawless Styling | The Setup Guarantee]`,
+        content: `[syn: If any element of the theme setup is not as promised, we correct it instantly | Our decorators double-check fairy lights and candle paths before you arrive].`
+      },
+      {
+        heading: `[syn: Flexible Rescheduling Policies | Customer-First Policy]`,
+        content: `[syn: We offer free rescheduling up to 48 hours before, protecting your advance | Rescheduling is simple via WhatsApp; just connect with our booking desk].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateHowtoContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `Planning a ${service.name.toLowerCase()} in ${C} does not need to be complicated. At ${V}, couples go from "I want to do something special" to "fully booked and sorted" in under 10 minutes. The process is WhatsApp-first, transparent on price, and handled almost entirely by our team. Here is the full workflow so you know exactly what to expect.`;
+    sections = [
+      {
+        heading: `The Booking Process: Step by Step`,
+        content: `**Step 1 — Contact us on WhatsApp (${PH})**. Share your preferred date, the occasion (birthday, anniversary, proposal, etc.), and a rough budget. Our team responds within minutes during business hours and immediately within an hour even late evening.\n\n**Step 2 — Choose your package**. We have 8 packages from ${LOW} to ${HIGH} across two venues: rooftop and glass house. Each package includes private venue access, full decoration setup, welcome drinks, a multi-course meal, and 3 hours. The difference between tiers is decoration complexity and whether a complimentary cake is included. We will recommend the best fit for your occasion.\n\n**Step 3 — Pay a small advance to confirm**. A ₹500–₹1,000 advance locks your date and time slot. The remaining balance is paid at the venue after your celebration ends. We accept GPay, PhonePe, Paytm, and bank transfer.\n\n**Step 4 — Share your personalisation details**. In the 2–3 days before your event, send us your color preferences for balloons, any custom text for the letter board, and a playlist link if you have one. These are included in the package at no extra cost.`
+      },
+      {
+        heading: `What Happens on the Day`,
+        content: `Our decoration team arrives 2–3 hours before your slot to set up everything. By the time you arrive, the space is fully ready — decorated, lit, food prep underway, music queued.\n\nYou walk in. Your partner sees the setup. The evening begins.\n\n**What you do not need to coordinate on the day**: decoration, food service, setup, or music. Our team handles all of it. You handle the person you came with.\n\n**Timing**: Arrive at your slot start time. The setup is completed before you arrive, not after. If you are planning a surprise and want to manage the exact moment your partner sees the space, WhatsApp us when you are 10 minutes away — we will coordinate the entry.\n\nFour time slots are available: Morning (12–3 PM), Evening (4–7 PM), Dinner (7–10 PM), Late Night (10 PM–1 AM). All slots include the same 3 hours of complete private access.`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `Organising a surprise ${service.name.toLowerCase()} in ${C} has one challenge that a regular celebration does not: you are managing two sets of logistics simultaneously — your partner's movements and your venue coordination. At ${V}, we have coordinated hundreds of surprise celebrations and know exactly where the timing goes wrong and how to prevent it. This guide covers the surprise-specific planning decisions.`;
+    sections = [
+      {
+        heading: `Planning the Surprise: Cover Story and Timing`,
+        content: `The most common mistake in surprise planning is not the venue or the decoration — it is the cover story. Your partner needs a reason to go somewhere at a specific time, and that reason needs to hold for the 20-30 minutes between leaving home and arriving at the venue.\n\n**Effective cover stories that work at ${V}**: "I booked a dinner at a restaurant in Gotri" (true enough), "There's something I want to show you" (creates curiosity without lying), "A friend wants to meet at this building" (works if your partner doesn't know the area).\n\n**Timing coordination**: WhatsApp ${PH} when you leave your starting point. Share your approximate travel time. Our team will confirm that setup is complete and coordinate the entrance so the space is fully lit and music is playing the moment your partner steps in.\n\n**Arrival**: Ask your partner to close their eyes at the elevator — or use any other approach that creates the gap between walking out of the lift and seeing the setup. That gap is where the reveal happens.`
+      },
+      {
+        heading: `Booking Timeline for Surprise Celebrations`,
+        content: `**Ideal lead time**: 4–5 days for a weekday surprise. 7–10 days for a weekend surprise. This gives time for full personalisation — custom letter board text, balloon color matching, playlist sharing — without rushing.\n\n**Same-day surprises**: Possible for weekday slots. WhatsApp ${PH} by midday, and if a slot is available that evening, we can execute a fully decorated surprise within 3–4 hours of confirmation. Weekend same-day availability is very limited.\n\n**What to share when booking a surprise**:\n- The occasion (birthday, anniversary, proposal)\n- Your partner's name for the letter board\n- Their favorite colors for balloon palette\n- Any songs you want playing on arrival\n- Whether you want the cake visible from entry or brought out mid-celebration\n\nAll coordination is handled on WhatsApp. No phone calls needed unless you prefer it.`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `When planning your ${kwl}, the time slot you choose shapes the entire experience. Not just logistically — the quality of light, the temperature of the air, the energy of the city below, and the psychological state both of you arrive in all vary with time of day. At ${V}, we have four slots: Morning (12–3 PM), Evening (4–7 PM), Dinner (7–10 PM), and Late Night (10 PM–1 AM). Here is how to choose.`;
+    sections = [
+      {
+        heading: `Each Time Slot: What It Actually Delivers`,
+        content: `**Morning (12–3 PM)**: Natural light fills both the rooftop and glass house. The city is active but not overwhelming. This slot is excellent for couples who prefer bright, clean photography and a daytime feel. It also has the highest availability — if you are booking with short notice, this slot is most accessible.\n\n**Evening (4–7 PM)**: The golden hour slot. From roughly 5:30–6:30 PM depending on the month, the sky transitions from afternoon blue to orange to pink. For couples who care about photography, this is the most visually rewarding slot. Sunset timing can be coordinated with our team for the optimal photo moment.\n\n**Dinner (7–10 PM)**: Our most popular slot. The city has shifted to its night mode, fairy lights and candles become the primary light sources, and the atmosphere reaches its maximum romantic intensity. Book 7–10 days ahead for weekends and 4–5 days for weekdays.\n\n**Late Night (10 PM–1 AM)**: The midnight birthday countdown slot. The city is quieter, the sky is fully dark, and the fairy lights and candlelight are at their most dramatic. Perfect for birthday surprises where the clock hitting 12:00 AM is the centrepiece moment.`
+      },
+      {
+        heading: `Matching the Slot to Your Occasion`,
+        content: `**Birthday countdown at 12:00 AM** → Late Night slot. We coordinate the exact midnight moment: music shifts, lights adjust, cake arrives.\n\n**Anniversary or proposal with photography focus** → Evening slot. Golden hour light creates the best natural conditions for photos.\n\n**Casual romantic dinner, first major date** → Dinner slot. Most atmospheric, most "restaurant evening" feel, most available in couples' mental calendar for a special occasion.\n\n**Surprise with a partner who sleeps early, or a morning person** → Morning slot. Better light, quieter, and more available.\n\n**Advance booking recommendation**: Dinner slot on weekends fills fastest — book 7–10 days ahead. All other slots on weekdays typically have 3–4 day availability. Festival dates (Valentine's Day, Diwali week, New Year) should be booked 2–3 weeks ahead regardless of slot. WhatsApp ${PH} to check real-time availability.`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `Planning your ${kwl} around a specific budget is the most practical starting point. At ${V}, we have 8 packages from ${LOW} to ${HIGH}, all fully inclusive — private venue, decorations, food, drinks, music, 3 hours. No service charge, no hidden extras, no decoration fee on top. Here is how to decide which tier makes sense for your celebration.`;
+    sections = [
+      {
+        heading: `Package Tiers: What Changes and What Stays the Same`,
+        content: `**What stays the same at every tier**: Complete 100% private venue access, professional decoration setup, welcome drinks, the full multi-course food menu (cheese fondue, wraps, fries, brownie, signature mocktails), romantic music you control, and 3 hours with our service team.\n\n**What changes between tiers**: Decoration complexity (number of zones, richness of arrangement work), venue type (glass house vs. rooftop), and whether a complimentary celebration cake is included.\n\n**${LOW} — Entry tier** (The Promise Creative Area or Pure Love Glass House): Complete celebration experience. Balloon arrangement, fairy lights, candles, rose petal pathway. No cake included in price (can be added for ₹350).\n\n**${formatPrice(5100)}–${formatPrice(5700)} — Mid tier** (Moonlit Romance, Sweet Together, Timeless Bond): More complex decoration setup. Additional zones, richer arrangement.\n\n**${formatPrice(6000)}–${formatPrice(6900)} — Premium tier** (Golden Promise, Eternal Love, Forever Us LoveFrame): Complimentary cake included. More elaborate decoration. The LoveFrame installation (ForeverUs package) creates a dedicated framed photo zone.`
+      },
+      {
+        heading: `Optional Add-ons and What They Cost`,
+        content: `The package price covers everything described above. Optional extras that some couples add:\n\n**Celebration cake (₹350)**: Available for all packages where cake is not included. Custom message inscribed.\n\n**Professional photography (₹2,500)**: Covers 30–40 edited digital photos delivered within 48 hours.\n\n**Extra time (₹1,500/hour)**: If your slot is available for extension, extra hours can be added.\n\n**Fresh rose bouquet (ask for pricing)**: Placed on the table or used in decoration.\n\n**Projector screen setup (ask for pricing)**: For surprise video compilations.\n\n**What you should NOT be charged for**: Decoration setup, food service, music, clean-up, extra water, standard balloon color customization, letter board text. These are all included.\n\nTo confirm exactly what is included at each price point for your specific date: WhatsApp ${PH}.`
+      }
+    ];
+  } else {
+    intro = `Choosing the right theme for your ${kwl} is a decision that shapes everything: the photographs you keep, the first impression when your partner walks in, the emotional register of the entire evening. At ${V}, we have 15+ theme options developed over thousands of celebrations. Here is how to think about the choice.`;
+    sections = [
+      {
+        heading: `Matching the Theme to Your Partner`,
+        content: `The best theme for your ${kwl} is the one that fits the person you are celebrating, not the most popular or most visually impressive option.\n\n**For the partner who loves photography and social media**: Bollywood theme (vivid, cinematic), Fairy Tale (soft glowing pastels), or Starlight (midnight blue and silver with point lights) all photograph exceptionally.\n\n**For the partner who appreciates understated elegance**: Minimalist (clean, architectural, single accent color), White Theme (pure white everything), or Classic Romantic (red roses, white candles, classic)\n\n**For the partner with a strong personal aesthetic**: Bohemian (macrame, terracotta, floor seating), Vintage (Edison bulbs, lace, warm amber), or Garden Theme (fresh botanicals, greenery, outdoor-inside feel).\n\n**For pure visual drama**: Royal (jewel tones, deep blue and gold, candelabras), Neon Theme (electric pink and blue UV lights), or Modern Chic (black, white, and gold graphic design).\n\nWhen booking, share what your partner responds to aesthetically — Instagram aesthetics, a wedding they loved, a color they wear often — and our team will recommend the matching theme.`
+      },
+      {
+        heading: `Customising Your Theme`,
+        content: `Every theme at ${V} can be personalised. Customisation is part of the booking process, not an extra service:\n\n**Color palette**: Most themes have a default palette that can be adjusted. If the Classic Romantic theme is requested in burgundy and cream instead of red and white, we accommodate it. If you want the Fairy Tale theme in lavender instead of pink, share that during booking.\n\n**Letter board text**: Every setup includes a letter board. Common messages: "Happy Birthday [Name]", "Will You Marry Me?", "5 Years of Us", "Our First Anniversary". You provide the text; we set it up.\n\n**Music**: Share a Spotify or YouTube playlist link. Our Bluetooth speakers play it throughout the slot. We can also set up a specific song to be playing when your partner enters.\n\n**Personal photos**: The LoveFrame package (Forever Us, ${formatPrice(6900)}) includes a printed photo display. Send high-resolution photos via WhatsApp at least 2 days before.\n\n**Personal objects**: Bring anything you want displayed in the setup — a printed timeline of your relationship, a gift, a specific object — and our team will position it in the space.\n\nAll customisation details are coordinated on WhatsApp at ${PH} in the days before your slot.`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateSeasonalContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  const seasonalDetails: Record<string, { vibe: string; venue: string; photo: string; bookingTip: string }> = {
+    summer: {
+      vibe: "Vadodara summers (March–June) run hot, which makes venue choice critical. The glass house is air-conditioned and provides a cool, comfortable interior while the afternoon and early evening light floods the transparent walls with a warm summer glow.",
+      venue: "Glass house packages are strongly recommended for summer afternoon and early evening slots. The rooftop is ideal for the Late Night slot (10 PM–1 AM) when temperatures drop to comfortable levels and the open sky is clear.",
+      photo: "Summer light is intense and directional — early afternoon slots produce dramatic shadows. The Evening slot (4–7 PM) captures the golden hour at its longest in summer (sunset around 7:00–7:15 PM), giving you an extended window of optimal natural light.",
+      bookingTip: "Summer weekdays have excellent availability. If your date falls in March–May, book 4–5 days ahead for any slot. The Late Night rooftop slot becomes very popular in summer — book 7 days ahead for weekends.",
+    },
+    monsoon: {
+      vibe: "Vadodara's monsoon season (July–September) is one of the most visually atmospheric times to celebrate. Rain against the glass house walls creates a natural, cinematic backdrop that open-air venues simply cannot replicate. Couples who celebrate during monsoon consistently describe the experience as the most private and intimate.",
+      venue: "The glass house is the definitive monsoon choice — climate-controlled, rain-proof, and the rain provides a living backdrop beyond the transparent walls. The rooftop can be used on clear monsoon evenings, but weather changes quickly — we monitor conditions and will move to the glass house if needed.",
+      photo: "Monsoon creates a diffused, overcast light that is flattering for photos and produces a cool, moody quality. The rain on glass creates a beautiful soft-focus effect in the background of portraits shot from inside the glass house.",
+      bookingTip: "Monsoon weekday slots have higher availability than peak winter months. Book 3–5 days ahead. For rooftop monsoon slots, we recommend keeping the glass house as your backup plan — we coordinate any shift with you in advance.",
+    },
+    winter: {
+      vibe: "Vadodara winters (November–February) produce the city's clearest skies and most comfortable outdoor temperatures. The rooftop experience reaches its peak during these months — fairy lights against a clear night sky, cool air, and the city's glow below. This is our most popular season.",
+      venue: "Open-air rooftop packages are strongly recommended for winter evening and dinner slots. The Eternal Love and Forever Us LoveFrame packages, both rooftop setups, are at their most visually spectacular during winter nights. The glass house remains excellent for couples who prefer an enclosed, intimate setting.",
+      photo: "Winter night photography at the rooftop is exceptional — the clear sky, the fairy lights, and the cool air create images with remarkable depth. The city lights below become crisp and detailed. Portraits shot against the winter night skyline are among the most striking we produce.",
+      bookingTip: "Winter is our busiest season. The Dinner slot (7–10 PM) on weekends books out 10–14 days ahead. Book early if you have a specific date in mind. Valentine's Day week (February 10–17) requires 3–4 weeks advance booking. WhatsApp ${PH} to check availability for your winter date.",
+    },
+    "rainy-season": {
+      vibe: "The rainy season in Vadodara creates a naturally intimate atmosphere — the sound of rain, the cool air, and the reduced ambient noise from the city below all contribute to a quieter, more present celebration. The glass house pavilion becomes a private bubble, with the rain creating a dynamic backdrop beyond the glass.",
+      venue: "Glass house is the rainy-season venue. The transparent walls bring the rain into the visual experience without the dampness. The rooftop is available on clear evenings and we monitor conditions carefully — if rain is expected during your slot, we discuss the glass house alternative in advance.",
+      photo: "Rainy season produces a soft, diffused light quality that is one of the best natural lighting conditions for photography. The reflection of fairy lights and candles in rain-touched glass creates a depth effect that dry-weather photos lack.",
+      bookingTip: "The rainy season has better slot availability than peak winter. For a rain-specific experience, the glass house afternoon or evening slot is ideal. WhatsApp ${PH} to confirm the glass house is available for your date — it books ahead of the rooftop during rainy months.",
+    },
+    weekend: {
+      vibe: "Weekend celebrations have a different energy from weekday ones — both partners typically arrive without the weight of the working day, and the psychological permission to fully relax into the evening is more available. Weekend slots at ${V} are our most in-demand for this reason.",
+      venue: "All packages are available across weekend slots. The Dinner slot (7–10 PM) on weekends is our most demanded — book 7–10 days ahead. Weekend Evening slots (4–7 PM) also fill quickly in peak months.",
+      photo: "Weekend celebrations tend to produce better photos — both partners arrive more relaxed, and relaxed subjects photograph better. The Dinner slot on weekends aligns with the city's energy shift toward evening activity, and the ambient light from the surrounding area adds to the rooftop atmosphere.",
+      bookingTip: "Book weekend slots significantly earlier than weekday slots. For a Saturday Dinner slot on any peak month (November–February, festival weeks), 10–14 days is the safe advance window. For weekday slots during the same weeks, 5–7 days is usually sufficient.",
+    },
+    weeknight: {
+      vibe: "Weeknight celebrations offer something weekend slots cannot: guaranteed availability and a calmer atmosphere. The city is quieter on weeknights, our team has more bandwidth for personalisation, and the venue itself has an undivided quality that peak-weekend slots sometimes lack.",
+      venue: "All 8 packages are available on weeknights across all four time slots. Same-day weeknight bookings are often possible with 3–4 hours notice — WhatsApp ${PH} to check.",
+      photo: "Weeknight photography benefits from the lower ambient light from surrounding buildings and streets. The rooftop's fairy light and candle setup becomes the dominant light source more quickly on weeknights, producing a more intimate photographic atmosphere.",
+      bookingTip: "Weeknight slots are our most available and our most accessible for short-notice bookings. 3–5 days advance notice is typically sufficient. For weeknight same-day bookings, contact us before 3 PM and we can usually accommodate evening or dinner slots.",
+    },
+    "long-weekend": {
+      vibe: "Long weekends in India combine the relaxed availability of a weekend with the extended time horizon of a holiday. They are among the most popular windows for romantic celebrations — couples who are usually time-pressured have a full day on either side of the celebration.",
+      venue: "All packages are available. Long weekend demand is similar to peak-season weekends — rooftop packages are particularly popular during pleasant weather long weekends (October, November, February, March).",
+      photo: "Long weekend couples often have more time before and after the celebration, which means more relaxed photography. There is no need to rush — the evening extends naturally beyond the 3-hour slot in either direction.",
+      bookingTip: "Long weekend slots, particularly the Dinner slot on the middle day, fill 10–14 days in advance. Public holiday long weekends (Diwali week, Holi weekend, Gandhi Jayanti) require early booking. WhatsApp ${PH} as soon as your long weekend plans are confirmed.",
+    },
+    holiday: {
+      vibe: "Holiday celebrations at ${V} have a specific quality — both partners typically have no commitments the next day, the festive energy of the occasion adds to the celebratory atmosphere, and the decorations can be adapted to reflect the specific holiday.",
+      venue: "All packages work for holiday celebrations. Festival-specific decoration accents can be added — diyas and rangoli for Diwali, red and pink theming for Valentine's, green and gold for Christmas. Share the festival when booking and we will adapt the setup.",
+      photo: "Holiday photography benefits from the seasonal decoration additions — festival accents add visual interest that standard setups lack. The ambient energy of a holiday also affects how both partners photograph — more relaxed, more present, more celebratory.",
+      bookingTip: "Festival dates and holiday weekends book out weeks in advance. Valentine's Day (Feb 14), New Year's Eve, Diwali, and Christmas evening slots are booked 3–5 weeks ahead in peak demand. Contact ${PH} as early as possible for these dates.",
+    },
+  };
+
+  const sd = seasonalDetails[ek.modifier] || seasonalDetails.winter;
+
+  if (angle === 0) {
+    intro = `The time of year shapes how a celebration feels, not just logistically — weather, light quality, temperature, and the city's energy all vary with season. A ${kwl} at ${V} takes advantage of what that season delivers. Here is what to expect and how to plan for it.`;
+    sections = [
+      {
+        heading: `${mod} at ${V}: Venue and Atmosphere`,
+        content: `${sd.vibe}\n\n${sd.venue}\n\nPackages start from ${LOW} and include 3 hours of private venue access — rooftop or glass house depending on what the season calls for. All packages include the same full food menu, welcome drinks, music, and professional decoration setup regardless of which venue type you choose.`
+      },
+      {
+        heading: `Booking Your ${kwl}`,
+        content: `${sd.bookingTip}\n\nTo check availability for your ${mod.toLowerCase()} date and confirm the best package for the conditions: WhatsApp ${PH}. Our team will advise on venue, slot, and any seasonal decoration adaptations that make sense for your celebration.`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `Planning a ${kwl} requires thinking about what the specific conditions of that time create — not just what packages are available, but what the light looks like, what the temperature feels like, and what venue choice maximises the experience. At ${V}, here is how to think about your ${mod.toLowerCase()} celebration.`;
+    sections = [
+      {
+        heading: `Photography in ${mod} Conditions`,
+        content: `${sd.photo}\n\nOur four time slots offer different photographic conditions in ${mod.toLowerCase()} conditions:\n\n**Morning (12–3 PM)**: Clean, bright, even light. Best for couples who prefer unambiguous, well-lit photography.\n\n**Evening (4–7 PM)**: The golden hour window varies seasonally — share your date and we will tell you the exact sunset window for maximum photographic impact.\n\n**Dinner (7–10 PM)**: Controlled ambiance — fairy lights and candles are the primary sources. Consistent regardless of season.\n\n**Late Night (10 PM–1 AM)**: The city at its quietest and darkest. Fairy lights and candles produce their most dramatic effect in complete darkness.`
+      },
+      {
+        heading: `${mod} Packages and Planning`,
+        content: `All 8 packages at ${V} are available year-round. What changes by season is which venue (rooftop or glass house) and which time slot delivers the optimal version of the experience.\n\n${sd.venue}\n\nTo book your ${kwl}: WhatsApp ${PH} with your date and we will confirm which slot and venue combination works best for the conditions.`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `Seasonal conditions at ${V} affect three things: which venue is most appropriate (rooftop vs. glass house), which time slot maximises the experience, and what the decoration setup looks like when adapted to the season. A ${kwl} here is designed with all three factors in mind.`;
+    sections = [
+      {
+        heading: `${mod}: Venue, Timing, and Atmosphere`,
+        content: `${sd.vibe}\n\n**Venue recommendation for ${mod.toLowerCase()}**: ${sd.venue}\n\n**Decoration adaptations for ${mod.toLowerCase()}**: Our decoration team adapts the setup to seasonal conditions — in monsoon, we lean into the glass house's rain-reflection effects; in winter, the rooftop's open sky becomes the backdrop; in summer, we optimise for the cooler Late Night slot with an expansive outdoor feel.\n\nAll packages (${LOW} to ${HIGH}) include private venue, full decoration, food, drinks, and 3 hours.`
+      },
+      {
+        heading: `Availability and Booking Strategy for ${mod}`,
+        content: `${sd.bookingTip}\n\n**Rescheduling**: If weather shifts unexpectedly close to your date, we offer free rescheduling up to 48 hours before. For rooftop slots during uncertain weather seasons, we also have the glass house as a same-day alternative if conditions become unsuitable.\n\nTo check availability and confirm your ${kwl}: WhatsApp ${PH}.`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `A ${kwl} is a specific request — you want not just a romantic celebration but one with the particular quality of that time of year. At ${V}, each season is planned for deliberately. Here is what the ${mod.toLowerCase()} version of a private celebration at our venue actually delivers.`;
+    sections = [
+      {
+        heading: `What ${mod} Delivers at ${V}`,
+        content: `${sd.vibe}\n\n${sd.photo}\n\nBoth the rooftop and glass house are available year-round. The glass house is fully climate-controlled (air-conditioned in summer, closed and heated in winter), making it a reliable choice regardless of external conditions. The rooftop is at its best in Vadodara's October–February clear-sky season.`
+      },
+      {
+        heading: `Packages and Booking for Your ${kwl}`,
+        content: `All 8 packages from ${LOW} to ${HIGH} are available for ${mod.toLowerCase()} slots. Each includes private venue, complete decoration, welcome drinks, the full food menu, romantic music, and 3 hours of exclusive access.\n\n${sd.bookingTip}\n\nRecommended packages for ${mod.toLowerCase()} celebrations:\n\n**Rooftop (best for clear ${mod.toLowerCase()} evenings)**: Forever Us LoveFrame Rooftop (${formatPrice(6900)}, includes cake), Eternal Love Rooftop (${formatPrice(6500)}, includes cake), Moonlit Romance (${formatPrice(5100)}).\n\n**Glass House (best for ${mod.toLowerCase()} afternoons or uncertain weather)**: Golden Promise (${formatPrice(6000)}, includes cake), Timeless Bond (${formatPrice(5700)}), Pure Love (${LOW}).\n\nWhatsApp ${PH} to confirm the best option for your ${mod.toLowerCase()} date.`
+      }
+    ];
+  } else {
+    intro = `Celebrating in ${mod.toLowerCase()} has a specific appeal — at ${V}, we have thought through what each season requires and optimised both the venue choice and setup accordingly. Your ${kwl} will be designed for the conditions, not despite them.`;
+    sections = [
+      {
+        heading: `${mod} Experience: Practical Details`,
+        content: `${sd.vibe}\n\n**Best venue for ${mod.toLowerCase()}**: ${sd.venue}\n\n**Photography in ${mod.toLowerCase()} conditions**: ${sd.photo}`
+      },
+      {
+        heading: `Book Your ${kwl}`,
+        content: `${sd.bookingTip}\n\n**Package range**: ${LOW} to ${HIGH}. All packages: 3 hours private venue, complete professional decoration, welcome drinks, full food menu, romantic music, dedicated service team.\n\n**How to book**: WhatsApp ${PH} with your preferred ${mod.toLowerCase()} date, time slot preference, and occasion. We confirm availability, recommend the optimal venue and slot combination, and lock the booking with a small advance payment.`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateStyleContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  const styleContext: Record<string, { principle: string; technique: string; bestSlot: string; packages: string }> = {
+    "instagram-worthy": {
+      principle: "Instagram rewards vertical composition, saturated warm colour, and clear visual hierarchy — a dominant subject in the foreground against a richly lit background. Every setup at ${V} is designed with these principles in mind, which is why couples consistently say their celebration photos required almost no editing.",
+      technique: "Shoot vertically from the start. The balloon walls are designed for vertical frames — they fill the aspect ratio of a phone screen naturally. For the hero shot, position yourselves in front of the main balloon arrangement with the fairy lights in the mid-ground and the city (on rooftop) or glass walls (in glass house) behind. Use Portrait mode to blur the fairy lights into soft bokeh circles. The warm white temperature of our lights renders skin tones beautifully without filters.",
+      bestSlot: "The Evening slot (4–7 PM) transitions from natural golden-hour light to fairy light atmosphere within a single booking — two distinct lighting conditions, both Instagram-optimal.",
+      packages: "Forever Us LoveFrame Rooftop (${formatPrice(6900)}) is our most Instagram-optimised package — the LoveFrame creates a framed composition that no other setup provides. Eternal Love Rooftop (${formatPrice(6500)}) gives the rooftop skyline backdrop for city-view shots. Golden Promise Glass House (${formatPrice(6000)}) creates distinctive glass-wall reflections that look unique in photos.",
+    },
+    "pinterest-perfect": {
+      principle: "Pinterest aesthetics favour curated imperfection — the arranged-but-not-staged quality of a beautifully set table, the warmth of candlelight, textures and layers that create visual interest without appearing overcrowded. Our setups are designed with this editorial quality.",
+      technique: "For Pinterest-quality shots, focus on the details rather than the wide establishing shot. Close-up of the rose petals on the table, the candle in its glass holder, the food plating, the custom letter board — these individual elements photograph with editorial quality when the underlying setup is well-designed. Wide shots work when there is genuine visual depth: foreground candles, mid-ground you and your partner, background fairy lights.",
+      bestSlot: "Dinner slot (7–10 PM) produces the most Pinterest-photogenic atmosphere — the controlled lighting, the candlelit table, and the fairy light background create the warm, composed quality that performs well on the platform.",
+      packages: "Timeless Bond Glass House (${formatPrice(5700)}) has an understated elegance that photographs particularly well for Pinterest. Bohemian and Vintage themes (available across glass house packages) are specifically popular with couples who curate their Pinterest boards carefully.",
+    },
+    photogenic: {
+      principle: "A photogenic space is one that produces good images reliably — where the lighting, composition, and visual depth are already in place before you point a camera. ${V} is designed for photogenicity as a baseline condition, not a lucky outcome.",
+      technique: "The key to consistent photogenic results in our venue is using the multiple layers of the setup. We design with foreground (rose petals, candles, table setting), mid-ground (balloon arrangement, couple), and background (fairy lights, city skyline or glass walls) elements. Use all three layers in your wide shots — the depth is what separates our photos from flat, uninspired celebration photography. For closer shots, let the fairy light bokeh do the work: wide aperture, subject sharp, background glowing soft circles.",
+      bestSlot: "The Dinner slot is consistently the most photogenic — the controlled lighting environment removes all the variables that make outdoor and daytime photography unpredictable. What you see in our photos is what you get in the Dinner slot.",
+      packages: "All packages are designed to be photogenic — this is not a premium feature. The difference between packages is decoration complexity, not photographic quality. Forever Us LoveFrame (${formatPrice(6900)}) creates the most unique compositional element with the LoveFrame installation.",
+    },
+    aesthetic: {
+      principle: "Aesthetic, in the contemporary sense, means intentionally designed rather than merely decorated. Every element earns its place through contribution to the visual whole. At ${V}, our setups are built on this principle — the colour palette is coordinated, the spatial arrangement is considered, and the decoration layers are structured to create depth rather than visual noise.",
+      technique: "For aesthetic photography: photograph with negative space. The restraint of our setup means that empty space is part of the composition — do not try to fill every frame with elements. A single candle in sharp focus against a soft fairy-light background is an aesthetic photograph. You and your partner in the mid-ground with the decorated space receding behind you is an aesthetic composition. The venue's design does the work if you let it.",
+      bestSlot: "Any slot produces aesthetic-quality images at ${V}. The Evening slot offers the most complex lighting environment — natural and artificial simultaneously, which creates the kind of layered quality that defines premium aesthetic photography.",
+      packages: "Minimalist theme, White Theme, and Modern Chic theme (available across glass house packages) are specifically designed for aesthetic photography — restraint, geometry, and considered composition are their defining visual qualities. Timeless Bond (${formatPrice(5700)}) and Golden Promise (${formatPrice(6000)}) glass house packages work particularly well for these themes.",
+    },
+    trendy: {
+      principle: "Trendy celebration aesthetics in 2024–2025 are defined by: warm, terracotta-adjacent colour palettes; abundant mixed-material textures; neon accents used sparingly; and the 'elevated everyday' quality that makes celebrations feel genuine rather than performed. At ${V}, we track these trends and our setups reflect them.",
+      technique: "For trendy photos: shot composition matters as much as the subject. The trending style is lifestyle photography rather than posed portraiture — candid moments, genuine reactions, natural interactions. Take photos of yourselves doing things (sharing food, reading the letter board for the first time, looking out from the rooftop) rather than primarily looking at the camera. The celebrations that trend are the ones that feel real.",
+      bestSlot: "The Evening slot captures the transition light that performs best across social platforms. The golden hour exterior + fairy light interior combination is one of the most sought-after aesthetics currently, and our Evening slot gives you both within a single booking.",
+      packages: "Bollywood Theme and Starlight Theme (across rooftop packages) are performing particularly well on social media currently. For glass house, the Bohemian and Dreamy themes align with current colour and texture trends.",
+    },
+    "insta-famous": {
+      principle: "The celebrations that generate genuine social traction share a quality: they look like an experience that others wish they had experienced. The venue is recognisable but not generic, the decoration is elaborate but coherent, and the couple appears genuinely present. ${V}'s rooftop and glass house have appeared thousands of times on Instagram with consistent positive engagement because they deliver this combination.",
+      technique: "For Insta-Famous results, the ratio of setup to couple matters. Post a mix: 30% wide shots establishing the space (letting viewers understand the environment), 50% mid shots of you together within the space, 20% detail shots (food, decoration, city view). This ratio tells a complete story rather than a single repeated angle. Use natural captions — describe what the moment felt like rather than the technical facts of what you booked.",
+      bestSlot: "Evening and Dinner slots produce the highest-performing social content — the transition from golden hour to fairy light atmosphere gives you a built-in story arc within a single celebration.",
+      packages: "Forever Us LoveFrame Rooftop (${formatPrice(6900)}) consistently produces our highest-engagement social content — the framed photo installation, the rooftop skyline, and the complimentary cake create multiple distinct content moments within one booking. Eternal Love Rooftop (${formatPrice(6500)}) is a close second for social content quality.",
+    },
+  };
+
+  const sc = styleContext[ek.modifier] || styleContext["instagram-worthy"];
+  const principle = sc.principle.replace(/\$\{V\}/g, V).replace(/\$\{formatPrice\(6900\)\}/g, formatPrice(6900)).replace(/\$\{formatPrice\(6500\)\}/g, formatPrice(6500)).replace(/\$\{formatPrice\(6000\)\}/g, formatPrice(6000)).replace(/\$\{formatPrice\(5700\)\}/g, formatPrice(5700));
+  const technique = sc.technique.replace(/\$\{V\}/g, V);
+  const bestSlot = sc.bestSlot.replace(/\$\{V\}/g, V);
+  const packages = sc.packages.replace(/\$\{\w+\(?\d*\)?\}/g, (m) => m.replace(/\$\{formatPrice\((\d+)\)\}/g, (_, n) => formatPrice(Number(n))));
+
+  if (angle === 0) {
+    intro = `A ${kwl} at ${V} is designed to be visually outstanding — not as a secondary consideration but as a primary design principle. Every decoration element, every lighting choice, and every setup configuration is made with photographic quality in mind. ${principle}`;
+    sections = [
+      {
+        heading: `Why ${mod} Photography Works at ${V}`,
+        content: `${technique}\n\n**The Four Photo Zones**: Rather than one photo spot, our setups include 3–4 distinct visual environments within the same celebration space:\n\n*Primary zone*: The balloon wall or main backdrop — the signature photo of the celebration.\n*Candle zone*: The table setting — intimate, warm, dining documentation.\n*Detail zone*: Rose petals, individual candles, food styling.\n*Couple zone*: The optimal composition spot for portraits together.\n\n**Best time slot for ${mod} photography**: ${bestSlot}`
+      },
+      {
+        heading: `Packages for Your ${kwl}`,
+        content: `${packages}\n\nAll packages include 3 hours of private access, complete decoration setup, welcome drinks, full food menu, and romantic music. The photographic quality of our space is consistent across all tiers — what varies is decoration complexity and inclusions. WhatsApp ${PH} to book your ${kwl}.`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `When you search for a ${kwl} venue in ${C}, you are looking for a space that produces extraordinary photos as a baseline condition — where the lighting, composition opportunities, and visual depth are already built into the room. At ${V}, this is how every setup is designed. ${principle}`;
+    sections = [
+      {
+        heading: `Photography Technique for Your ${kwl}`,
+        content: `${technique}\n\n**Common mistakes to avoid**: Using flash (destroys the warm ambient atmosphere), shooting only wide shots (missing the detail-level photographs that tell the full story), photographing only in the first 10 minutes (the best photos come when both of you are relaxed — 30-60 minutes into the celebration).\n\n**${bestSlot}`
+      },
+      {
+        heading: `Book Your ${kwl} at ${V}`,
+        content: `${packages}\n\nAll packages: 3 hours private venue, complete ${mod.toLowerCase()} setup, welcome drinks, full food menu, background music. WhatsApp ${PH} to check availability and confirm your ${kwl}.`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `${mod} celebrations require a venue that is designed for visual quality, not just romantic atmosphere. At ${V}, both are built into the space. ${principle} Here is what makes the difference between a celebration that photographs well and one that photographs extraordinarily.`;
+    sections = [
+      {
+        heading: `The ${mod} Setup: Design and Photography`,
+        content: `${technique}\n\n**Setup zones that work for ${mod.toLowerCase()} photography**:\n\n*Balloon wall*: Primary backdrop for vertical compositions.\n*Fairy light ceiling/canopy*: Background element for bokeh-heavy portraits.\n*Table setting*: Detail shots — individual candles, rose petals, food styling.\n*City view (rooftop) or glass walls (glass house)*: Environmental context shots.\n\n${bestSlot}`
+      },
+      {
+        heading: `Package Recommendations for ${kwl}`,
+        content: `${packages}\n\nAll 8 packages (${LOW}–${HIGH}) are available for your ${kwl}. The photographic intelligence of the design is consistent across tiers. To book: WhatsApp ${PH}.`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `The difference between a celebration that photographs well and one that photographs magnificently is venue design. ${mod} celebrations at ${V} are designed to the latter standard. ${principle}`;
+    sections = [
+      {
+        heading: `Design Principles Behind the ${mod} Setup`,
+        content: `**Colour coordination**: Every decoration element shares a palette — balloons, flowers, candle holders, table accents. Nothing clashes.\n\n**Three-dimensional depth**: Decorations are arranged in foreground (rose petals, candles at table level), mid-ground (balloon arrangement at standing height), and background (fairy lights, glass walls or sky). This depth is what makes wide-angle celebration photos look professional.\n\n**Lighting architecture**: We use multiple light source types simultaneously — fairy lights (ambient), candles (warm point sources), and soft overhead illumination. This combination eliminates the flat, harsh quality that single-source lighting creates.\n\n${technique}`
+      },
+      {
+        heading: `Packages for Your ${kwl}`,
+        content: `${packages}\n\nPackages from ${LOW} to ${HIGH}. All include private venue, complete setup, welcome drinks, food, music, 3 hours. To book your ${kwl}: WhatsApp ${PH}.`
+      }
+    ];
+  } else {
+    intro = `A ${kwl} in ${C} requires a venue designed for visual excellence. At ${V}, photographic quality is built into the space — not as a feature of specific packages but as the design standard of every setup. ${principle}`;
+    sections = [
+      {
+        heading: `Why ${V} Works for ${kwl}`,
+        content: `${technique}\n\n**What every package includes for photo quality**: Multiple dedicated photo zones, layered lighting (fairy lights + candles + ambient), three-dimensional decoration depth, and a team that has positioned thousands of couples in this space for maximum visual impact.\n\n${bestSlot}`
+      },
+      {
+        heading: `Book Your ${kwl}`,
+        content: `${packages}\n\nAll packages: 3 hours private venue, complete decoration, welcome drinks, food, music. WhatsApp ${PH} to book your ${kwl} at ${V} in ${C}.`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateNearmeContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `When you search for a ${kwl}, you are asking a location question with an implicit quality requirement: accessible, but not a compromise. ${V} in Gotri is designed to serve exactly this need. It is in the heart of ${C}, reachable from any residential area within 10–25 minutes, and it is genuinely the best private couple celebration venue in the city — not the nearest option that calls itself romantic.`;
+    sections = [
+      {
+        heading: `Location and Access: ${V} in Gotri`,
+        content: `**Full address**: 424, OneWest Building, Asopalav W, 4th Floor, Priya Talkies Road, Gotri, Vadodara 391101.\n\n**From central areas (Alkapuri, Akota, Sayajigunj, Race Course)**: 10–15 minutes via RC Dutt Road or Akota Garden Road toward Gotri.\n\n**From north Vadodara (Sama, Karelibaug, Nizampura)**: 15–20 minutes via Waghodia Road or Fatehgunj Road.\n\n**From south Vadodara (Manjalpur, Tarsali, Makarpura)**: 20–25 minutes via the Ring Road connecting to Gotri.\n\n**Navigation**: Search "Friends Factory Cafe Vadodara" on Google Maps. The listing is verified with accurate directions from any starting point.\n\n**Parking**: Street parking on Priya Talkies Road directly adjacent to the OneWest building. Auto-rickshaws and cabs drop at the building entrance. Elevator access to 4th floor — no stairs required.`
+      },
+      {
+        heading: `What the "Near Me" Search Actually Delivers`,
+        content: `The ${service.name.toLowerCase()} venues that appear in a "near me" search are of two types: restaurants that have adapted their setup to accommodate couple celebrations, and venues that were purpose-built for it. ${V} is the latter.\n\n**What you will not find near you in ${C}**: A 100% private venue for couples (not a section of a restaurant), a rooftop with city views, a glass house designed for intimate couples, a team that has handled 3,000+ celebrations and executes them with that experience.\n\n**What ${V} offers, accessible from wherever you are in ${C}**: Complete private venue. Rooftop or glass house. Professional decoration setup. 3 hours exclusively yours. Packages from ${LOW}.\n\nThe drive — 10–25 minutes depending on your starting point — is the only variable. The experience at the other end is consistent. WhatsApp ${PH} to check availability.`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `A "near me" search for ${service.name.toLowerCase()} reflects a real need: you want the venue to be accessible without sacrificing quality. Most venues that appear in these searches are restaurants adding couple packages to their standard offering. ${V} was built specifically for private couple celebrations — a fundamentally different type of venue, accessible from anywhere in ${C}.`;
+    sections = [
+      {
+        heading: `Private Venue vs. Restaurant: The Actual Difference`,
+        content: `When you sit at a "couple package" table in a restaurant, you are in a restaurant. Other diners are present. Waiters are attending other tables. The ambient sound is the restaurant. The decoration is placed on your table while the rest of the room remains unchanged.\n\nAt ${V}, the entire 4th-floor space is yours for 3 hours. No other guests. No other tables being served. The decoration team has spent 2–3 hours setting up specifically for your celebration before you arrived. The food is served by your dedicated service person. The music is controlled by you.\n\nThis is not a subtle difference. The privacy, the dedicated attention, and the physical design of the space for couple celebration is what produces the consistent 4.9-star reviews — not the quality of the food or decoration in isolation, but the experience of having a space that exists entirely for you.\n\n**The drive to Gotri**: 10–25 minutes from any residential area in ${C}. After 3 hours in a space designed completely for you, no one has described the drive back as the memorable part of the evening.`
+      },
+      {
+        heading: `Packages and Booking`,
+        content: `All 8 packages are available: ${LOW} to ${HIGH}. Every package includes the private venue, complete decoration setup, welcome drinks, full food menu, romantic music, and 3 hours. No hidden charges — the price quoted is the price you pay.\n\n**How to book your ${kwl}**: WhatsApp ${PH} with your preferred date, occasion, and approximate budget. Our team confirms availability within minutes and recommends the best package for your situation.\n\n**Lead time**: 3–5 days for weekday slots, 7–10 days for weekend slots. Same-day weekday bookings are sometimes possible — contact us by midday to check.`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `Getting to ${V} from any part of ${C} is a straightforward 10–25 minute journey. For a ${service.name.toLowerCase()} where you spend 3 full hours, the transit to Gotri is a small fraction of the total experience. Here is everything you need to know about getting here, and what is waiting at the other end.`;
+    sections = [
+      {
+        heading: `Getting to ${V}: Every Route and Mode`,
+        content: `**Address**: 424, OneWest Building, 4th Floor, Priya Talkies Road, Gotri, Vadodara 391101.\n\n**By Ola/Uber**: Enter "Friends Factory Cafe Vadodara" or the address above as your destination. Both services have the venue in their database. Drop-off is directly at the building entrance on Priya Talkies Road.\n\n**By auto-rickshaw**: Ask for "OneWest building, Priya Talkies Road, Gotri." Rickshaw drivers from any part of ${C} know the Gotri area. Fare from central Vadodara is typically ₹60–₹100.\n\n**Driving yourself**: Priya Talkies Road has street parking adjacent to the OneWest building. For GPS navigation, search "Friends Factory Cafe Vadodara" — the Maps listing is current and accurate.\n\n**Building access**: Ground floor reception → elevator → 4th floor. No stairs required. Our team meets you at the lift lobby.\n\n**Surprise arrivals**: WhatsApp ${PH} when you are 5–10 minutes away. We will confirm the setup is complete and the entrance is ready for your partner's reveal.`
+      },
+      {
+        heading: `What Is Waiting When You Arrive`,
+        content: `Your celebration space is fully set up before you arrive — decoration complete, lights arranged, food prep underway, music queued. You do not wait for setup. You walk in.\n\n**The rooftop** (clear evenings, Dinner and Late Night slots): 4th-floor open-air terrace with panoramic ${C} skyline view. Fairy lights, candles, balloon arrangement, the city below.\n\n**The glass house** (any weather, any slot): Climate-controlled glass-walled pavilion. All the decoration elements of the rooftop plus the architectural experience of transparent walls that multiply every light source — candles, fairy lights, and city glow all reflected and refracted.\n\nPackages from ${LOW} to ${HIGH}. All include private venue, decoration, food, drinks, 3 hours. WhatsApp ${PH} to book.`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `Planning a surprise ${service.name.toLowerCase()} near you in ${C} has one challenge that a regular celebration does not: you are managing your partner's location and expectations while coordinating the venue. At ${V}, we have handled hundreds of surprise celebrations and know how to make the logistics seamless from wherever you are starting.`;
+    sections = [
+      {
+        heading: `Surprise Planning from Any Part of ${C}`,
+        content: `**The cover story**: The most effective cover stories for a ${V} surprise are vague enough to be sustainable. "I booked dinner at a place in Gotri" is true and does not require elaboration. "There's something I want to show you" creates curiosity. "I have a small surprise but you need to trust me for 20 minutes" is direct and works well with partners who dislike uncertainty.\n\n**Timing coordination**: WhatsApp ${PH} when you leave your starting point. Share your approximate travel time. Our team will confirm when setup is complete and be ready for your arrival. For the reveal moment, we can dim certain lights, have specific music playing, or coordinate any other specific moment you have in mind.\n\n**The moment your partner sees the setup**: This is the part that no amount of planning fully prepares you for. Over 500 successful surprise celebrations has given us a consistent observation: the reaction is almost always immediate and genuine, regardless of how composed the person normally is. The combination of a completely private space, elaborate decoration, and music creates a reveal that works.\n\n**Post-surprise**: Once your partner is inside and the initial reveal has happened, our team steps back. The service is discreet — we are present for food and any needs, but you are not being watched or interrupted.`
+      },
+      {
+        heading: `Booking Your Surprise ${kwl}`,
+        content: `**Advance planning**: 4–5 days for weekday slots, 7–10 days for weekends. For same-day surprise bookings, WhatsApp ${PH} before noon — we can often accommodate evening and dinner slots with 4+ hours notice.\n\n**What to tell us**: The occasion, your partner's name (for the letter board), color preferences (their favourite dress color often informs the balloon palette), and whether you want the cake visible from entry or brought out mid-celebration.\n\n**Package range**: ${LOW} to ${HIGH}. All packages include the private venue, complete decoration, food, and 3 hours. The right package for a surprise depends on the occasion — our team will recommend based on what you share.\n\nWhatsApp ${PH} to begin planning.`
+      }
+    ];
+  } else {
+    intro = `${V} serves couples from every neighbourhood in ${C} — from Alkapuri and Akota (10 minutes away) to Manjalpur and Tarsali (20–25 minutes). The search for a ${kwl} in ${C} consistently leads here because there is no comparable private couple celebration venue in the city. Here is what that means in practice.`;
+    sections = [
+      {
+        heading: `Why ${V} Answers the ${mod} Search`,
+        content: `The "near me" qualifier in a ${service.name.toLowerCase()} search is asking for convenience without compromise — the best option that does not require a significant journey. ${V} satisfies both requirements. It is in Gotri, connected to every part of ${C} within 25 minutes, and it is the best private romantic celebration venue in ${C} by the most meaningful measures.\n\n**Quality signals**: 4.9-star Google rating across hundreds of verified reviews. 3,000+ couples celebrated since 2019. Transparent pricing with no hidden charges. Complete privacy — 100% private venue for your booking slot. Professional decoration team with 3+ hours setup time before you arrive.\n\n**Access from ${C}**: From central areas (Alkapuri, Sayajigunj, Race Course) — 10–15 minutes. From north ${C} (Sama, Karelibaug) — 15–20 minutes. From south ${C} (Manjalpur, Tarsali) — 20–25 minutes. Navigation: Search "Friends Factory Cafe Vadodara" on Google Maps.`
+      },
+      {
+        heading: `Packages and How to Book`,
+        content: `**Package range**: ${LOW} (The Promise or Pure Love Glass House) to ${HIGH} (Forever Us LoveFrame Rooftop with complimentary cake). Eight total packages across rooftop and glass house venues.\n\n**All packages include**: Private venue access, complete professional decoration setup, welcome drinks, full multi-course food menu, romantic music with Bluetooth speaker control, 3 hours of exclusive access, and dedicated service throughout.\n\n**How to book your ${kwl}**: WhatsApp ${PH} with your preferred date and occasion. Response within minutes during business hours. Small advance confirms the booking. Balance paid at the venue after your celebration.\n\n**Lead time**: 3–5 days for weekday slots. 7–10 days for weekends. Same-day sometimes possible on weekdays — contact by noon to check.`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generatePriceContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const slug = ek.modifier;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  const priceInfo: Record<string, { headline: string; packages: string; insight: string }> = {
+    "under-5000": {
+      headline: "[syn: Two packages sit under ₹5,000 and neither is a compromise | We offer value packages starting at ₹4,700 that include full privacy]",
+      packages: `* **The Promise Creative Area (${LOW})**: [syn: Our cozy tent-style setup with balloon canopy and candles | A lovely canopy arrangement with full inclusions].
+* **Pure Love Glass House (${LOW})**: [syn: Glass pavilion experience with white-tone styling | Intimate glass house layout at our most accessible rate].`,
+      insight: `[syn: Even below ₹5,000, you receive the same 3 hours of complete private venue access | We prepare the same freshly made veg food menu and play your song playlists].`,
+    },
+    "under-6000": {
+      headline: "[syn: Five packages sit under ₹6,000, offering excellent styling variety | We provide multiple rooftop and Glass House configurations under ₹6,000]",
+      packages: `* **Moonlit Romance (${formatPrice(5100)})**: [syn: Enhanced balloon styling and drapes on the rooftop | Popular open-air canopy setup].
+* **Sweet Together Glass House (${formatPrice(5500)})**: [syn: Warm, colorful balloon styling inside the pavilion | Cozy glass-enclosed dates].
+* **Timeless Bond Glass House (${formatPrice(5700)})**: [syn: Highly elegant glass pavilion layout | Premium styling under ₹6,000].`,
+      insight: `[syn: The decision between these tiers is primarily based on styling colors and density | The level of table service, privacy, and food remains identical].`,
+    },
+    "under-7000": {
+      headline: "[syn: Our entire range of 8 packages sits under ₹7,000 | All rooftop and Glass House options are accessible under ₹7,000]",
+      packages: `* **Golden Promise Glass House (${formatPrice(6000)})**: [syn: Glass pavilion setup with complimentary cake | Premium glass house dates].
+* **Eternal Love Rooftop (${formatPrice(6500)})**: [syn: Open-air rooftop canopy with complimentary cake | Breathtaking skyline views].
+* **Forever Us LoveFrame Rooftop (${formatPrice(6900)})**: [syn: Flagship LoveFrame setup, city views, and cake | Our most complete skyline experience].`,
+      insight: `[syn: Tiers from ₹6,000 upward include a complimentary celebration cake in the package | These represent our most elaborate styling and photo zones].`,
+    },
+    "5000-to-7000": {
+      headline: "[syn: The ₹5,000 to ₹7,000 range contains our most popular packages | Most couples select setups within the ₹5,000–₹7,000 tier for enhanced decor]",
+      packages: `* **Moonlit Romance (${formatPrice(5100)})**: [syn: Skyline rooftop canopy | Excellent value outdoor setup].
+* **Sweet Together Glass House (${formatPrice(5500)})**: [syn: Warm glass pavilion colors | Great for cozy indoor surprises].
+* **Golden Promise Glass House (${formatPrice(6000)})**: [syn: Glass house layout, cake included | Flagship indoor setup].`,
+      insight: `[syn: This range balances premium styling density with outstanding package value | It covers all venue formats and includes custom cakes in top tiers].`,
+    }
+  };
+
+  const pd = priceInfo[slug] || priceInfo["under-7000"];
+
+  if (angle === 0) {
+    intro = `[syn: Clear pricing policies protect couples from surprise costs | We believe that flat rates ensure stress-free planning]. At ${V}, what we quote is what you pay.`;
+    sections = [
+      {
+        heading: `[syn: Cost Inclusions for | All-Inclusive Packages] ${ek.modifierLabel}`,
+        content: `${pd.headline}\n\n${pd.packages}`
+      },
+      {
+        heading: `[syn: What You Receive at Every Tier | Standard Inclusions]`,
+        content: `${pd.insight}\n\n[syn: Every booking secures a flat 3 hours of private access, complete decorations, welcome drinks, food, and music | No service taxes, clean-up fees, or decoration surcharges are added at checkout].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Evaluating package rates requires comparing what is physically delivered | Let's review the styling differences between price tiers]. We offer direct options.`;
+    sections = [
+      {
+        heading: `[syn: Styling Complexity vs Package Price | Decor Audit]`,
+        content: `[syn: Entry-level packages focus on cozy canopy layouts and clean paths | Premium packages feature high-density balloon arches and customized photo frames].`
+      },
+      {
+        heading: `[syn: Food Menu Quality Standards | Culinary details]`,
+        content: `[syn: The food menu is identical across all tiers, prepared using premium ingredients | We serve cheese fondue, paneer wraps, peri peri fries, brownies, and mocktails hot].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Choosing between Rooftop and Glass House depends on style preferences | Let's compare the costs of our two main venue spaces]. Both offer 100% privacy.`;
+    sections = [
+      {
+        heading: `[syn: Rooftop vs Glass House Package Rates | Venue Selection]`,
+        content: `[syn: Outdoor rooftop slots start at ${LOW} for canopy tent setups | Glass House climate-controlled pavilion packages start at ${LOW} for Pure Love].`
+      },
+      {
+        heading: `[syn: Weather Adaptation and Gaps | Booking Security]`,
+        content: `[syn: If unexpected rain occurs, we reschedule or move to the Glass House if available | We maintain clear gaps between slots to ensure setups are reset cleanly].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: Many couples wonder why private venue rates differ from restaurant tables | Let's break down where your investment goes]. We practice transparency.`;
+    sections = [
+      {
+        heading: `[syn: Behind the Pricing: Where the Money Goes | Cost Breakdown]`,
+        content: `[syn: Operating an exclusive 4th-floor couples-only space requires blocking all walk-ins | Your package covers venue hire, custom styling labor, fresh food ingredients, and service].`
+      },
+      {
+        heading: `[syn: Easy WhatsApp Booking & Deposits | How to Secure]`,
+        content: `[syn: Lock your preferred date and slot with a small advance via UPI | WhatsApp us at ${PH} to get real-time availability calendar instantly].`
+      }
+    ];
+  } else {
+    intro = `[syn: Budget planning tips help couples optimize their celebration costs | Here is our advice for selecting the ideal package]. We help you decide.`;
+    sections = [
+      {
+        heading: `[syn: How to Select the Ideal Package Tier | Decision Guide]`,
+        content: `[syn: Choose value tiers starting at ${LOW} for casual dates and surprises | Select ₹6,000+ premium tiers for milestone anniversaries that require cakes].`
+      },
+      {
+        heading: `[syn: Personalization Without Extra Charges | Free Customizations]`,
+        content: `[syn: Balloon colors, song playlists, and letter board messages are customized for free | Connect with our booking desk on WhatsApp to confirm details].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateRelationshipContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  const relInfo: Record<string, { truth: string; specifics: string; packageRec: string }> = {
+    "for-newly-married": {
+      truth: "[syn: Newlyweds are transitioning from wedding intensity to daily married rhythms | Post-wedding dates help couples maintain celebratory magic in marriage]",
+      specifics: "[syn: We can integrate wedding colors or display photos from your ceremony in the setup | Choose custom letter board text that references your new wedding date]",
+      packageRec: "[syn: The flagship LoveFrame Rooftop at ${formatPrice(6900)} is highly recommended for newlyweds | Select the Golden Promise Glass House for intimate, cozy reflection]",
+    },
+    "for-engaged-couples": {
+      truth: "[syn: The engagement period is a beautiful, temporary phase of romantic anticipation | Celebrating while engaged honors a specific step in your journey together]",
+      specifics: "[syn: Setups can be oriented toward future wedding planning or remain focused on the present | We personalize the table cards and music playlists to fit your vibe]",
+      packageRec: "[syn: The Eternal Love Rooftop canopy is very popular for engaged couples | Choose mid-range Glass House setups starting at ${formatPrice(5500)} for cozy dates]",
+    },
+    "for-dating-couples": {
+      truth: "[syn: Dating couples face pressure to plan memorable dates within practical budgets | A private venue signals investment and intentionality in early dating]",
+      specifics: "[syn: The private space removes public restaurant noise, helping you talk comfortably | Customized color schemes and custom song playlists are fully included]",
+      packageRec: "[syn: Moonlit Romance at ${formatPrice(5100)} balances impressive decor with accessible rates | Choose Pure Love at ${LOW} for a cozy, budget-friendly date]",
+    },
+    "for-long-term-couples": {
+      truth: "[syn: Long-term partners often experience celebration fatigue from habitual routines | Breaking away from standard restaurants signals that this occasion is special]",
+      specifics: "[syn: Our private spaces remove public distractions, allowing for genuine reconnection | Display a timeline of printed photos from your years together on our photo wall]",
+      packageRec: "[syn: The Forever Us LoveFrame Rooftop is our most recommended setup for long-term couples | Choose Glass House setups for a quiet, reflective candlelight dinner]",
+    }
+  };
+
+  const ri = relInfo[ek.modifier] || {
+    truth: `[syn: Every stage of a relationship has its own character and emotional needs | The way you celebrate should reflect who you are together at this point].`,
+    specifics: `[syn: We adapt setup colors, playlists, and letter boards to fit your stage | Share your occasion details and partner preferences during booking].`,
+    packageRec: `[syn: All 8 packages starting from ${LOW} are available for customization | WhatsApp us to check which setup best matches your relationship stage].`
+  };
+
+  if (angle === 0) {
+    intro = `[syn: Relationships are not generic, and date setups shouldn't be either | We understand that dating, newlyweds, and long-term partners need different vibes]. We customize around connection.`;
+    sections = [
+      {
+        heading: `[syn: Understanding the Stage Context | Relationship Psychology]`,
+        content: `${ri.truth}\n\n[syn: The atmosphere we create is designed to support your relationship stage | From quiet intimate reflection to energetic celebrations, we align the space].`
+      },
+      {
+        heading: `[syn: Tailoring the Decoration Setup | Styling Specifics]`,
+        content: `${ri.specifics}\n\n[syn: Share name texts, favorite balloon colors, and playlist links with our team | We build the setup to reflect your story, ensuring a meaningful date].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: A common mistake in planning dates is choosing busy public spaces | True intimacy requires a dedicated, distraction-free setting]. Let's audit public vs private dining.`;
+    sections = [
+      {
+        heading: `[syn: Why Public Restaurants Hinder Connection | The Space Audit]`,
+        content: `[syn: Constant waiter interruptions and surrounding tables make personal talk difficult | At ${V}, your package reserves the entire Glass House or rooftop exclusively].`
+      },
+      {
+        heading: `[syn: What Exclusivity Delivers for Couples | True Connection]`,
+        content: `[syn: Celebrate in peace with a dedicated coordinator serving you quietly | Bluetooth sound systems let you play personal playlists at your preferred volume].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Selecting the right package for your partner depends on their personality | Let's review our recommendations based on relationship stages]. We guide your choice.`;
+    sections = [
+      {
+        heading: `[syn: Custom Package Recommendations | Setup Selection]`,
+        content: `${ri.packageRec}\n\n[syn: We offer 8 setups across two venue types (rooftop and Glass House) | Tiers range from ${LOW} to ${HIGH} to match your preferences].`
+      },
+      {
+        heading: `[syn: Inclusions at Every Price Point | Standard Features]`,
+        content: `[syn: Every booking includes a flat 3 hours of privacy, complete decor, food, and drinks | We prepare a multi-course veg meal hot and serve mocktails on arrival].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: Planning surprise dates requires logistical care to protect the secret | We specialize in managing surprise entries for couples]. Let's coordinate the surprise.`;
+    sections = [
+      {
+        heading: `[syn: Coordinating the Surprise entry | Reveal Logistics]`,
+        content: `[syn: WhatsApp our onsite team when you leave for the OneWest building in Gotri | We ensure the private door is open and entry songs play as you walk in].`
+      },
+      {
+        heading: `[syn: Recommended Cover Stories | Keeping the Secret]`,
+        content: `[syn: Tell your partner you are meeting friends or going for a routine dinner | The sudden transition to a private decorated skyline terrace is memorable].`
+      }
+    ];
+  } else {
+    intro = `[syn: Booking your date early ensures slot availability for key dates | Let's review booking guidelines for relationship milestones]. We make planning easy.`;
+    sections = [
+      {
+        heading: `[syn: Recommended Booking Windows | Lead Times]`,
+        content: `[syn: Weekday slots are highly available; book 3-4 days in advance | Peak weekend evening slots book out fast; we advise reserving 7-10 days prior].`
+      },
+      {
+        heading: `[syn: Payment Policies & Deposits | WhatsApp Booking]`,
+        content: `[syn: Secure your preferred slot with a small advance via UPI on WhatsApp | Message ${PH} to get real-time availability calendar instantly].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateBookingContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const slug = ek.modifier;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  const bookingDetails: Record<string, { headline: string; specifics: string; tip: string }> = {
+    "same-day-booking": {
+      headline: `Same-day booking at ${V} is genuinely possible for weekday slots. The process is fast — WhatsApp ${PH} by midday, confirm slot availability, pay a small advance, and we can have a fully decorated private venue ready for you within 4–5 hours. Weekend same-day availability is very limited as slots fill 5–7 days ahead.`,
+      specifics: `**How same-day booking works**:\n\n1. WhatsApp ${PH} before noon with your preferred time slot (Afternoon 12–3 PM, Evening 4–7 PM, Dinner 7–10 PM, Late Night 10 PM–1 AM) and the occasion.\n2. We check real-time availability and confirm within minutes.\n3. Pay the advance (₹500–₹1,000) via UPI or bank transfer to lock the slot.\n4. Share your personalisation details — balloon colours, letter board text, music playlist — within an hour of booking.\n5. Our decoration team arrives 2–3 hours before your slot to set up. You arrive to a fully prepared space.\n\n**What you can and cannot customise same-day**: Balloon colours, music, letter board text — all possible same-day. Custom printed photo displays (LoveFrame) require 2+ days. Custom cake messages are possible if confirmed quickly. Complex theme modifications need more lead time.`,
+      tip: `Same-day slots that are typically available on weekdays: Morning (12–3 PM) almost always, Afternoon/Evening (4–7 PM) often, Dinner (7–10 PM) sometimes. For best same-day availability, call before noon.`,
+    },
+    "last-minute": {
+      headline: `Last-minute ${service.name.toLowerCase()} planning — 24–48 hours before the date — is very manageable at ${V}. The full celebration experience is available with this lead time, including complete decoration, personalised letter board, and food. What requires more time (5+ days) is custom printed photo displays and complex theme modifications.`,
+      specifics: `**24–48 hour booking process**:\n\n1. WhatsApp ${PH} with your date, preferred time slot, and occasion.\n2. We confirm slot availability immediately and share package options.\n3. Pay the advance to lock the slot.\n4. Share personalisation details — balloon colours, letter board text (your partner's name, a message), music playlist link.\n5. Setup complete before your arrival.\n\n**What is fully available last-minute**: All 8 packages, complete decoration, custom letter board text, balloon colour palette, music, food, 3 hours private access. Standard celebration cake (chocolate, vanilla) can be arranged with 24+ hours notice.\n\n**What requires more lead time**: Custom-shaped cakes require 3+ days. Printed photo displays (LoveFrame) need 2+ days for printing. Extreme theme modifications with unusual props need sourcing time.`,
+      tip: `For last-minute bookings, the Dinner slot (7–10 PM) is our most-requested. Book by 3 PM for that evening's dinner slot. For next-day bookings, any slot is available based on existing reservations.`,
+    },
+    "advance-booking": {
+      headline: `Advance booking at ${V} — 7 to 21 days ahead — gives you the full range of options: your preferred date secured, complete personalisation possible, and access to premium add-ons that require sourcing time. For peak dates (Valentine's Day, New Year, Diwali, major anniversaries), advance booking is essential.`,
+      specifics: `**What advance booking unlocks**:\n\n**Date certainty**: The Dinner slot (7–10 PM) on weekends fills 7–10 days ahead. If your anniversary, birthday, or festival date falls on a weekend, book in this window to guarantee your slot.\n\n**Complete personalisation**: Advance booking time allows our team to source custom props, print photographs for the LoveFrame display, coordinate custom cake designs, and adapt the decoration palette to your specific preferences.\n\n**LoveFrame photo display**: Send high-resolution photos via WhatsApp at least 3–4 days before. We print, frame, and arrange them in the dedicated photo wall installation.\n\n**Custom cakes**: Custom shape, tier, and message cakes require 3–5 days notice for our partner bakery.\n\n**Festival and holiday dates**: Valentine's Day (Feb 14), New Year's Eve, Diwali, and Karva Chauth require 2–3 weeks advance booking. These dates have zero same-day availability.`,
+      tip: `Our recommendation: book as soon as your date is decided. There is no drawback to booking early — free rescheduling is available up to 48 hours before the event if plans change.`,
+    },
+    "online-booking": {
+      headline: `Booking at ${V} is done entirely via WhatsApp — no website form required, no phone queue, no waiting for email confirmation. WhatsApp ${PH}, share your date and occasion, and our team responds within minutes with availability and package options.`,
+      specifics: `**The WhatsApp booking process**:\n\n**Step 1**: Send a message to ${PH} with: your preferred date, your preferred time slot (Morning 12–3 PM / Evening 4–7 PM / Dinner 7–10 PM / Late Night 10 PM–1 AM), the occasion (birthday, anniversary, proposal, etc.), and your approximate budget.\n\n**Step 2**: Our team responds with real-time slot availability and package recommendations for your occasion and budget.\n\n**Step 3**: Confirm your package choice and pay the advance (₹500–₹1,000) via GPay, PhonePe, Paytm, or bank transfer. This locks your date and time.\n\n**Step 4**: In the 2–3 days before, share your personalisation details: balloon colour preference, names/message for the letter board, music playlist link. These are included at no extra cost.\n\n**Step 5**: Arrive at your slot start time. The venue is fully set up. You walk in.\n\n**Booking confirmation**: We send a formal confirmation ticket via WhatsApp with your venue details, timing, and address map pin immediately after payment.`,
+      tip: `WhatsApp communication means everything is documented in one thread — your booking details, personalisation requests, and our confirmations are all in the chat history. No need to remember anything or follow up by phone.`,
+    },
+  };
+
+  const bd = bookingDetails[slug] || bookingDetails["online-booking"];
+
+  if (angle === 0) {
+    intro = `${bd.headline} Here is everything you need to know to book your ${kwl} at ${V}.`;
+    sections = [
+      {
+        heading: `How to Book Your ${kwl}`,
+        content: `${bd.specifics}`
+      },
+      {
+        heading: `Packages, Availability, and Policies`,
+        content: `${bd.tip}\n\n**Package range**: ${LOW} to ${HIGH}. All 8 packages include private venue, complete decoration, welcome drinks, full food menu, music, and 3 hours of exclusive access.\n\n**Rescheduling**: Free up to 48 hours before the event. Advance deposit held as credit toward your rescheduled date.\n\n**Cancellation**: Full refund of advance payment if cancelled 48+ hours ahead. Under 48 hours: deposit held as venue credit.\n\n**Payment methods**: GPay, PhonePe, Paytm, bank transfer (NEFT/IMPS), cash at venue for balance.`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `Understanding how ${kwl} works at ${V} removes the uncertainty from planning. Our booking system is WhatsApp-first, transparent on pricing, and designed around the reality that most people are planning something special and want it to be easy. Here is the complete picture.`;
+    sections = [
+      {
+        heading: `${kwl}: Full Process Guide`,
+        content: `${bd.specifics}\n\n${bd.tip}`
+      },
+      {
+        heading: `Time Slots and Availability`,
+        content: `Four slots daily, each 3 hours:\n\n**Morning (12 PM–3 PM)**: Highest availability, natural light, excellent for photography.\n**Evening (4 PM–7 PM)**: Golden hour slot. Sunset timing varies seasonally — our team advises on the optimal photo window.\n**Dinner (7 PM–10 PM)**: Most popular. Fairy lights and candles are the primary light source. Books fastest — 7–10 days ahead for weekends.\n**Late Night (10 PM–1 AM)**: Midnight birthday countdown slot. The 12 AM moment is coordinated with precision — music shift, lights, cake arrival.\n\nTo check real-time availability for your date: WhatsApp ${PH}.`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `Your ${kwl} at ${V} comes with policies designed around what actually happens when people are planning romantic celebrations: plans change, dates shift, partners find out about surprises early. Here is the full picture of what we offer and how the process protects you.`;
+    sections = [
+      {
+        heading: `Booking Policies: Rescheduling, Cancellation, Payment`,
+        content: `**Rescheduling (free, up to 48 hours before)**: If your date changes, WhatsApp ${PH} with the new date. We move the booking to the new slot at no charge, subject to availability. Your advance payment transfers automatically.\n\n**Cancellation (48+ hours before)**: Full refund of the advance payment. No cancellation fee. We process the refund within 2–3 business days.\n\n**Cancellation (under 48 hours before)**: Advance held as venue credit. No cash refund. Credit can be used for any future booking.\n\n**Weather contingency (rooftop slots)**: If heavy rain or extreme weather affects your rooftop slot, we offer a same-day shift to the glass house (subject to availability) or a free reschedule.\n\n**Payment methods**: GPay, PhonePe, Paytm, BHIM UPI, NEFT/IMPS bank transfer. All accepted. Cash accepted at the venue for the balance payment.\n\n**No hidden charges**: The package price is all-inclusive — no GST on top, no service charge, no decoration fee. What we quote is what you pay.`
+      },
+      {
+        heading: `${kwl}: The Booking`,
+        content: `${bd.headline}\n\n${bd.tip}\n\nPackages from ${LOW} to ${HIGH}. WhatsApp ${PH} to begin.`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `Planning a surprise ${service.name.toLowerCase()} requires coordinating the booking around someone else's schedule and keeping the destination secret. At ${V}, this is one of the most common scenarios we handle — over 500 surprise celebrations executed since 2019. Here is how the booking process works when it is a surprise.`;
+    sections = [
+      {
+        heading: `Booking a Surprise ${service.name}: Step by Step`,
+        content: `**What to share during booking**: The occasion, your partner's name (for the letter board), their colour preferences (their favourite dress colour often informs the balloon palette), whether you want a cake and if so what message, and whether you are planning a midnight countdown (Late Night slot) or a standard celebration.\n\n**What not to share**: Nothing about the destination. The cover story is entirely your design — we do not require or need to know what you have told your partner about where you are going.\n\n**Timing coordination**: WhatsApp ${PH} when you leave your starting point on the day. Share your estimated travel time. We will confirm the setup is complete and our team is ready at the lift lobby for your arrival.\n\n**The reveal logistics**: You can choose: bring your partner to the lift lobby and we open the space for you, or we leave the entrance ready and you open it yourself. Either way, the decoration is fully illuminated, music is playing, and the space is ready for the exact moment they walk in.\n\n**If the surprise is discovered early**: It happens. Contact us and we can adjust the personalisation elements — the letter board text, for example — to account for the situation.`
+      },
+      {
+        heading: `${kwl} Availability and Packages`,
+        content: `${bd.tip}\n\nPackages for surprise celebrations:\n\n**Forever Us LoveFrame Rooftop — ${formatPrice(6900)}**: The LoveFrame creates the most dramatic visual reveal of any package. Complimentary cake. Our most popular surprise package.\n\n**Eternal Love Rooftop — ${formatPrice(6500)}**: Canopy rooftop with complimentary cake. Strong reveal impact.\n\n**Golden Promise Glass House — ${formatPrice(6000)}**: Glass house with complimentary cake — best for monsoon and summer surprises.\n\n**From ${LOW}**: Complete surprise setup. Full decoration, private venue, food, music, 3 hours.\n\nWhatsApp ${PH} to book.`
+      }
+    ];
+  } else {
+    intro = `Choosing the right package for your ${kwl} at ${V} is a simple decision once you understand what changes between tiers and what stays the same. Here is the complete breakdown so you can make the right choice for your occasion and budget.`;
+    sections = [
+      {
+        heading: `Package Comparison: ${kwl}`,
+        content: `**What stays the same across all packages**: 100% private venue access, professional decoration setup (our team arrives 2–3 hours early), welcome drinks, the full multi-course food menu (cheese fondue, wraps, peri peri fries, brownie, mocktails), romantic music you control via Bluetooth, 3 hours of exclusive access, and our service team present throughout.\n\n**What changes between tiers**:\n\n*${LOW} (Pure Love / The Promise)*: Complete decoration setup, no complimentary cake (add ₹350).\n*${formatPrice(5100)}–${formatPrice(5700)}*: Enhanced decoration complexity — more zones, richer arrangement.\n*${formatPrice(6000)}–${formatPrice(6900)}*: Premium decoration, complimentary celebration cake, LoveFrame photo installation (Forever Us package).\n\n**Venue type**: Glass house packages are enclosed, climate-controlled, architectural. Rooftop packages are open-air with city views. Both are fully private.`
+      },
+      {
+        heading: `How to Book Your ${kwl}`,
+        content: `${bd.headline}\n\n${bd.specifics}\n\n${bd.tip}`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateAreaServiceContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  const kw = ek.title;
+  const kwl = kw.toLowerCase();
+  const areaName = ek.areaName || "your area";
+  const areaSlug = ek.areaSlug || "";
+  const areaInfo = getArea(areaSlug);
+  const distMin = areaInfo.distanceMin;
+  const landmark = areaInfo.landmark;
+  const character = areaInfo.character;
+  const h = hash(ek.slug);
+  const angle = h % 5;
+
+  const proximityNote =
+    distMin <= 5
+      ? `[syn: Since ${areaName} is practically adjacent to Gotri | With ${areaName} being just a stone's throw from Gotri | As a nearby resident of ${areaName}] — you are [syn: only about ${distMin} minutes | just a quick 3 to 5 minute drive] away from [syn: our completely private venue | our exclusive celebration space] near ${landmark}.`
+      : distMin <= 12
+      ? `[syn: Situated just ${distMin} minutes from ${landmark} in ${areaName} | Located a short ${distMin}-minute drive from ${areaName} | Positioned roughly ${distMin} minutes away from ${areaName} (near ${landmark})], our [syn: Gotri venue is highly accessible | private rooftop is exceptionally convenient] while offering [syn: the ultimate couple privacy | complete romantic seclusion].`
+      : distMin <= 18
+      ? `[syn: The drive from ${areaName} (starting near ${landmark}) is around ${distMin} minutes | Travelling from ${areaName} (approx. ${distMin} minutes from ${landmark}) to Gotri] is [syn: smooth and straightforward | quick and easy]. It makes our [syn: private rooftop and glass house venue | exclusive couples' space] [syn: highly accessible for an evening out | the perfect destination for your celebration].`
+      : `[syn: While the drive from ${areaName} (starting near ${landmark}) takes about ${distMin} minutes | Although it requires a ${distMin}-minute drive from ${areaName}] to [syn: our private rooftop in Gotri | the OneWest building in Gotri], couples [syn: consistently tell us that having 100% private access | tell us that the complete exclusivity of the venue] makes [syn: the short commute totally worthwhile | the trip absolutely worth it].`;
+
+  const localNote =
+    distMin <= 5
+      ? `[syn: As a resident of the quiet, premium ${areaName} neighbourhood | Given that ${areaName} is a calm, established residential hub], you'll feel [syn: right at home in Gotri's peaceful and upscale environment | completely comfortable in Gotri's similarly exclusive surroundings].`
+      : `[syn: ${areaName}, widely known as a ${character} | Since ${areaName} is recognized as a ${character}], is [syn: well-connected to Gotri | very accessible from our side of town]. Our venue [syn: provides the private, romantic atmosphere | offers the quiet, distraction-free environment] that [syn: standard local restaurants cannot replicate | neighbourhood dining spots simply cannot offer].`;
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
+
+  if (angle === 0) {
+    intro = `[syn: Finding a premium private venue near ${areaName} is about convenience and quality | Residents of ${areaName} looking for a birthday surprise, anniversary, or proposal venue] consistently choose ${V} in Gotri.`;
+    sections = [
+      {
+        heading: `${service.name} Near ${areaName}: [syn: Why Couples Make the Drive | Choosing Exclusivity]`,
+        content: `${proximityNote}\n\n[syn: Our 4th-floor space is centrally located, making travel simple | We are Vadodara's top-rated private celebration space with over 3,000 successful bookings and a 4.9★ rating].`
+      },
+      {
+        heading: `[syn: Neighborhood Connection & Character | Local Context]`,
+        content: `${localNote}\n\n[syn: Gotri offers a quiet, established residential character that is easy to navigate | The environment feels exclusive and secure, removed from busy commercial streets].`
+      }
+    ];
+  } else if (angle === 1) {
+    intro = `[syn: Evaluating romantic dining options in and around ${areaName} reveals a key choice | Exclusivity is the primary difference you need to check]. We offer 100% booking privacy.`;
+    sections = [
+      {
+        heading: `[syn: Comparing Local Restaurants vs Private Venues | Exclusivity Audit]`,
+        content: `[syn: Cafes and restaurants in the ${areaName} area serve food in shared halls with public noise | We reserve the entire Glass House or rooftop terrace exclusively for your 3-hour slot].`
+      },
+      {
+        heading: `[syn: Sparing No Effort in decoration & styling | Decor standards]`,
+        content: `[syn: Standard spots only offer a corner table with basic flower drapes | Our team spends 2-3 hours handcrafting custom setups, balloon arches, and candle paths before you arrive].`
+      }
+    ];
+  } else if (angle === 2) {
+    intro = `[syn: Let's review the transport modes and routes from ${areaName} to Gotri | Navigation to our venue is smooth and direct]. We coordinate arrival logistics.`;
+    sections = [
+      {
+        heading: `[syn: Transit Guidelines: Ola, Uber, and Auto-Rickshaw | How to Reach]`,
+        content: `[syn: Cabs easily locate 'OneWest Gotri' and drop off directly at the lobby entrance | Ricks from major landmark hubs near ${areaName} take a direct route and are highly accessible].`
+      },
+      {
+        heading: `[syn: Google Maps Pin and Street Parking | Navigation details]`,
+        content: `[syn: Search 'Friends Factory Cafe Vadodara' on Maps for verified turn-by-turn routes | Ample street parking is available directly in front of the OneWest building].`
+      }
+    ];
+  } else if (angle === 3) {
+    intro = `[syn: If you are organizing a surprise from ${areaName}, coordination is key | Our team tracks your drive to ensure a flawless reveal]. We manage surprise entries.`;
+    sections = [
+      {
+        heading: `[syn: Surprise Reveal Coordination on WhatsApp | Entry Logistics]`,
+        content: `[syn: Text our onsite coordinator when you set off from near ${landmark} | We sync setup completion so candles and music activate the moment you walk in].`
+      },
+      {
+        heading: `[syn: Partner Cover Stories & Secret Planning | Surprising Your Partner]`,
+        content: `[syn: Tell your partner you are visiting a local store or meeting friends in Gotri | The sudden reveal of a private decorated rooftop skyline terrace is unforgettable].`
+      }
+    ];
+  } else {
+    intro = `[syn: We offer 8 distinct configurations designed to match your preferences | Packages starting at ${LOW} cover all inclusions]. Let's compare options.`;
+    sections = [
+      {
+        heading: `[syn: Comparing Package Tiers and Setups | Selection Guide]`,
+        content: `[syn: For cozy, value-focused dates, select Pure Love starting at ${LOW} | Choose flagship ₹6,000+ tiers for custom cakes and LoveFrame setups].`
+      },
+      {
+        heading: `[syn: WhatsApp Booking & Deposit Policies | Next Steps]`,
+        content: `[syn: Secure your preferred slot on WhatsApp with a small deposit | Connect with our booking desk at ${PH} to check slot availability instantly].`
+      }
+    ];
+  }
+
+  return buildResult(ek, service, intro, sections);
+}
+
+function generateAreaKeywordContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
+  return generateAreaServiceContent(ek, service);
+}
 // ==================== PUBLIC API ====================
 
-/**
- * Generate dimension-aware content for an expanded keyword.
- * Returns content tailored to the specific dimension (budget, theme, area, etc.)
- */
+
 export function generateExpandedContent(
   ek: ExpandedKeyword,
   service: ServiceCategory,
@@ -1330,6 +1784,5 @@ export function generateExpandedContent(
   const gen = generators[ek.dimension];
   if (gen) return gen(ek, service);
 
-  // Fallback: should never reach here
   return generateBudgetContent(ek, service);
 }

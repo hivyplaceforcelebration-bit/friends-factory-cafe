@@ -6,8 +6,11 @@ import { Shield } from 'lucide-react';
 import { siteConfig } from '@/lib/ffc-config';
 
 export const metadata: Metadata = {
-title: 'Privacy Policy | Candle Light Dinner & Celebration Venue in Vadodara',
-    description: 'Privacy Policy - Learn how we collect, use, and protect your personal information when booking candle light dinners, birthday surprises & romantic celebrations in Vadodara.',
+  title: 'Privacy Policy | Candle Light Dinner & Celebration Venue in Vadodara',
+  description: 'Privacy Policy - Learn how we collect, use, and protect your personal information when booking candle light dinners, birthday surprises & romantic celebrations in Vadodara.',
+  alternates: {
+    canonical: 'https://friendsfactorycafe.com/privacy-policy',
+  },
 };
 
 export default function PrivacyPolicyPage() {

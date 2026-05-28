@@ -27,6 +27,9 @@ export const metadata: Metadata = {
     title: `Book Candle Light Dinner & Celebrations in Vadodara`,
     description: `8 Premium Packages from ₹4,700. Rooftop & Glass House celebrations in Vadodara.`,
   },
+  alternates: {
+    canonical: 'https://friendsfactorycafe.com/book-now',
+  },
 };
 
 export default function BookNowPage() {
