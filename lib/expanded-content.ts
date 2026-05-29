@@ -1284,8 +1284,10 @@ function generateStyleContent(ek: ExpandedKeyword, service: ServiceCategory): FF
 function generateNearmeContent(ek: ExpandedKeyword, service: ServiceCategory): FFCKeywordContent {
   const kw = ek.title;
   const kwl = kw.toLowerCase();
+  const mod = ek.modifierLabel;
   const h = hash(ek.slug);
   const angle = h % 5;
+
 
   let intro = "";
   let sections: FFCContentSection[] = [];
@@ -1597,6 +1599,9 @@ function generateBookingContent(ek: ExpandedKeyword, service: ServiceCategory): 
   };
 
   const bd = bookingDetails[slug] || bookingDetails["online-booking"];
+
+  let intro = "";
+  let sections: FFCContentSection[] = [];
 
   if (angle === 0) {
     intro = `${bd.headline} Here is everything you need to know to book your ${kwl} at ${V}.`;
