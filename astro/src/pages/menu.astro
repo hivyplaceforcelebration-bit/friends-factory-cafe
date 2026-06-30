@@ -1,0 +1,124 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import WhatsAppFloat from '../components/WhatsAppFloat.astro';
+import { siteConfig, menuItems } from '../lib/config';
+---
+<Layout
+  title="Menu | Friends Factory Cafe Vadodara | Complete Vegetarian Dining Menu"
+  description="Explore Friends Factory Cafe's complete vegetarian menu for candlelight dinners and celebrations in Vadodara. Includes starters, main course, desserts, and optional add-ons."
+  canonical="https://friendsfactorycafe.com/menu/"
+  breadcrumbs={[
+    { name: "Home", url: siteConfig.website },
+    { name: "Menu", url: `${siteConfig.website}/menu/` },
+  ]}
+>
+  <Header />
+
+  <main class="pt-24">
+    <section class="py-16 bg-gradient-to-br from-amber-50 via-white to-orange-50">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <h1 class="font-serif text-4xl sm:text-5xl font-bold text-stone-900 mb-4">
+            Our <span class="gradient-text">Menu</span>
+          </h1>
+          <p class="text-stone-500 text-lg max-w-xl mx-auto">
+            A complete vegetarian dining experience crafted for romance. Every item is thoughtfully selected to enhance your celebration.
+          </p>
+        </div>
+
+        <!-- Starters -->
+        <div class="mb-10">
+          <h2 class="font-serif text-2xl font-bold text-stone-900 mb-6 flex items-center gap-2">
+            <span>🥗</span> Starters & Snacks
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {menuItems.starters.map(item => (
+              <div class="glass rounded-xl p-4 card-hover flex gap-3">
+                <span class="text-2xl flex-shrink-0">{item.emoji}</span>
+                <div>
+                  <div class="font-semibold text-stone-800 text-sm">{item.name}</div>
+                  <div class="text-xs text-stone-500 mt-0.5">{item.description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Main Course -->
+        <div class="mb-10">
+          <h2 class="font-serif text-2xl font-bold text-stone-900 mb-6 flex items-center gap-2">
+            <span>🍽️</span> Main Course
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {menuItems.mains.map(item => (
+              <div class="glass rounded-xl p-5 card-hover flex gap-3">
+                <span class="text-2xl flex-shrink-0">{item.emoji}</span>
+                <div>
+                  <div class="font-semibold text-stone-800">{item.name}</div>
+                  <div class="text-sm text-stone-500 mt-0.5">{item.description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Desserts -->
+        <div class="mb-10">
+          <h2 class="font-serif text-2xl font-bold text-stone-900 mb-6 flex items-center gap-2">
+            <span>🍰</span> Desserts
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {menuItems.desserts.map(item => (
+              <div class="glass rounded-xl p-4 card-hover flex gap-3">
+                <span class="text-2xl flex-shrink-0">{item.emoji}</span>
+                <div>
+                  <div class="font-semibold text-stone-800 text-sm">{item.name}</div>
+                  <div class="text-xs text-stone-500 mt-0.5">{item.description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Add-ons -->
+        <div class="glass rounded-2xl p-6">
+          <h2 class="font-serif text-2xl font-bold text-stone-900 mb-6 flex items-center gap-2">
+            <span>✨</span> Optional Add-ons
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {menuItems.addons.map(item => (
+              <div class="bg-amber-50 rounded-xl p-4 flex items-center justify-between card-hover">
+                <div class="flex gap-3 items-start">
+                  <span class="text-2xl flex-shrink-0">{item.emoji}</span>
+                  <div>
+                    <div class="font-semibold text-stone-800 text-sm">{item.name}</div>
+                    <div class="text-xs text-stone-500 mt-0.5">{item.description}</div>
+                  </div>
+                </div>
+                <div class="text-amber-700 font-bold text-sm ml-4 flex-shrink-0">{item.price}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Note -->
+        <div class="mt-10 text-center">
+          <p class="text-sm text-stone-500 mb-4">All packages include the full menu above. Add-ons can be booked separately.</p>
+          <a
+            href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20I%20have%20a%20question%20about%20the%20menu`}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-primary gap-2"
+          >
+            Ask About Menu on WhatsApp
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+  <WhatsAppFloat />
+</Layout>

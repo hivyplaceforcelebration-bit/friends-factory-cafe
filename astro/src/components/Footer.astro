@@ -1,0 +1,85 @@
+---
+import { siteConfig, vadodaraAreas, services } from '../lib/config';
+const year = new Date().getFullYear();
+---
+<footer class="bg-stone-900 text-stone-300 pt-16 pb-8">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+
+      <!-- Brand -->
+      <div class="lg:col-span-1">
+        <div class="font-serif text-xl font-bold text-white mb-3">
+          Friends Factory Cafe
+        </div>
+        <p class="text-sm leading-relaxed mb-4 text-stone-400">
+          Vadodara's most loved private celebration venue. From candlelight dinners to proposals — we make every moment magical.
+        </p>
+        <p class="text-xs text-stone-500 mb-2">📍 {siteConfig.address}</p>
+        <a href={`tel:${siteConfig.phone}`} class="text-xs text-amber-400 hover:text-amber-300">📞 {siteConfig.phone}</a>
+        <div class="flex gap-3 mt-4">
+          <a href={siteConfig.socialLinks.instagram} target="_blank" rel="noopener noreferrer" class="text-stone-400 hover:text-white transition-colors text-xs">Instagram</a>
+        </div>
+      </div>
+
+      <!-- Services -->
+      <div>
+        <h3 class="text-white font-semibold text-sm uppercase tracking-wider mb-4">Our Services</h3>
+        <ul class="space-y-2">
+          {services.map(s => (
+            <li>
+              <a href={`/${s.slug}-vadodara/`} class="text-sm text-stone-400 hover:text-amber-400 transition-colors">
+                {s.emoji} {s.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Areas Served (1) -->
+      <div>
+        <h3 class="text-white font-semibold text-sm uppercase tracking-wider mb-4">Areas (Vadodara)</h3>
+        <ul class="space-y-1.5 columns-2 gap-x-4">
+          {vadodaraAreas.slice(0, 20).map(area => (
+            <li>
+              <a href={`/${area.slug}-candlelight-dinner/`} class="text-xs text-stone-400 hover:text-amber-400 transition-colors">
+                {area.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Areas Served (2) -->
+      <div>
+        <h3 class="text-white font-semibold text-sm uppercase tracking-wider mb-4">More Areas</h3>
+        <ul class="space-y-1.5 columns-2 gap-x-4">
+          {vadodaraAreas.slice(20).map(area => (
+            <li>
+              <a href={`/${area.slug}-candlelight-dinner/`} class="text-xs text-stone-400 hover:text-amber-400 transition-colors">
+                {area.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <div class="mt-6">
+          <h3 class="text-white font-semibold text-sm uppercase tracking-wider mb-3">Quick Links</h3>
+          <ul class="space-y-1.5">
+            <li><a href="/packages/" class="text-xs text-stone-400 hover:text-amber-400">All Packages</a></li>
+            <li><a href="/menu/" class="text-xs text-stone-400 hover:text-amber-400">Menu</a></li>
+            <li><a href="/about/" class="text-xs text-stone-400 hover:text-amber-400">About Us</a></li>
+            <li><a href="/virtual-tour/" class="text-xs text-stone-400 hover:text-amber-400">Virtual Tour</a></li>
+            <li><a href="/blog/" class="text-xs text-stone-400 hover:text-amber-400">Blog</a></li>
+            <li><a href="/contact/" class="text-xs text-stone-400 hover:text-amber-400">Contact</a></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="border-t border-stone-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <p class="text-xs text-stone-500">© {year} Friends Factory Cafe. All rights reserved.</p>
+      <p class="text-xs text-stone-500">Made with ❤️ in Vadodara, Gujarat</p>
+    </div>
+  </div>
+</footer>

@@ -52,13 +52,13 @@ const staticPages = [
  * This is the single source of truth for all page URLs
  */
 export function getAllSiteUrls(): SitemapUrl[] {
-  const currentDate = new Date().toISOString();
+  const CONTENT_LAST_UPDATED = "2026-06-09";
   const urls: SitemapUrl[] = [];
 
   // Homepage
   urls.push({
     url: BASE_URL,
-    lastModified: currentDate,
+    lastModified: CONTENT_LAST_UPDATED,
     changeFrequency: "daily",
     priority: 1.0,
     type: "home",
@@ -70,7 +70,7 @@ export function getAllSiteUrls(): SitemapUrl[] {
   staticPages.forEach((page) => {
     urls.push({
       url: `${BASE_URL}${page.path}`,
-      lastModified: currentDate,
+      lastModified: CONTENT_LAST_UPDATED,
       changeFrequency: page.freq,
       priority: page.priority,
       type: "static",
@@ -83,7 +83,7 @@ export function getAllSiteUrls(): SitemapUrl[] {
   serviceCategories.forEach((service) => {
     urls.push({
       url: `${BASE_URL}/${service.slug}`,
-      lastModified: currentDate,
+      lastModified: CONTENT_LAST_UPDATED,
       changeFrequency: "weekly",
       priority: 0.9,
       type: "service",
@@ -96,7 +96,7 @@ export function getAllSiteUrls(): SitemapUrl[] {
   packages.forEach((pkg) => {
     urls.push({
       url: `${BASE_URL}/packages/${pkg.slug}`,
-      lastModified: currentDate,
+      lastModified: CONTENT_LAST_UPDATED,
       changeFrequency: "weekly",
       priority: 0.9,
       type: "package",
@@ -110,7 +110,7 @@ export function getAllSiteUrls(): SitemapUrl[] {
     service.keywords.forEach((keyword) => {
       urls.push({
         url: `${BASE_URL}/${keyword.slug}`,
-        lastModified: currentDate,
+        lastModified: CONTENT_LAST_UPDATED,
         changeFrequency: "weekly",
         priority: 0.85,
         type: "keyword",
@@ -125,7 +125,7 @@ export function getAllSiteUrls(): SitemapUrl[] {
   vadodaraAreas.forEach((area) => {
     urls.push({
       url: `${BASE_URL}/${area.slug}`,
-      lastModified: currentDate,
+      lastModified: CONTENT_LAST_UPDATED,
       changeFrequency: "weekly",
       priority: 0.8,
       type: "area",
@@ -138,7 +138,7 @@ export function getAllSiteUrls(): SitemapUrl[] {
   blogPosts.forEach((post) => {
     urls.push({
       url: `${BASE_URL}/blog/${post.slug}`,
-      lastModified: currentDate,
+      lastModified: post.publishedAt,
       changeFrequency: "monthly",
       priority: 0.7,
       type: "blog",
@@ -151,7 +151,7 @@ export function getAllSiteUrls(): SitemapUrl[] {
   getAllExpandedKeywords().forEach((ek) => {
     urls.push({
       url: `${BASE_URL}/${ek.slug}`,
-      lastModified: currentDate,
+      lastModified: CONTENT_LAST_UPDATED,
       changeFrequency: "weekly",
       priority: ek.dimension === "area-keyword" || ek.dimension === "area-service" ? 0.7 : 0.75,
       type: "keyword",

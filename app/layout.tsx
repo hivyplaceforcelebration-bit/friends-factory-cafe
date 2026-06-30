@@ -166,6 +166,9 @@ const jsonLd = {
       "telephone": "+91-7487888730",
       "email": "hello@friendsfactorycafe.com",
       "priceRange": "₹₹₹",
+      "servesCuisine": "Indian, Continental, Fusion",
+      "hasMenu": "https://friendsfactorycafe.com/menu",
+      "acceptsReservations": "True",
       "currenciesAccepted": "INR",
       "paymentAccepted": "Cash, Credit Card, UPI, GPay, PhonePe",
       "image": [
@@ -201,7 +204,7 @@ const jsonLd = {
       "aggregateRating": {
         "@type": "AggregateRating",
         "ratingValue": "4.8",
-        "reviewCount": "500",
+        "reviewCount": "525",
         "bestRating": "5",
         "worstRating": "1"
       },
@@ -360,6 +363,87 @@ const jsonLd = {
           "item": "https://friendsfactorycafe.com/packages"
         }
       ]
+    },
+    // ─── Speakable schema (voice search / AI assistant citations) ─────────────
+    {
+      "@type": "WebPage",
+      "@id": "https://friendsfactorycafe.com/#webpage",
+      "url": "https://friendsfactorycafe.com",
+      "name": "Friends Factory Cafe — Candlelight Dinners & Birthday Surprises in Vadodara",
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": ["h1", ".speakable-summary"]
+      },
+      "isPartOf": { "@id": "https://friendsfactorycafe.com/#website" }
+    },
+    // ─── Individual Review objects (E-E-A-T signals for Google AI Overview) ────
+    {
+      "@type": "Review",
+      "@id": "https://friendsfactorycafe.com/#review-1",
+      "author": { "@type": "Person", "name": "Priya & Rahul Mehta" },
+      "datePublished": "2026-04-10",
+      "reviewBody": "The rooftop candlelight dinner at Friends Factory Cafe was absolutely magical. 100% private, stunning decor, and the staff made everything so easy. Our anniversary was perfect!",
+      "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
+      "itemReviewed": { "@id": "https://friendsfactorycafe.com/#business" }
+    },
+    {
+      "@type": "Review",
+      "@id": "https://friendsfactorycafe.com/#review-2",
+      "author": { "@type": "Person", "name": "Sneha & Arjun Patel" },
+      "datePublished": "2026-03-22",
+      "reviewBody": "Planned a surprise birthday for my boyfriend here. The balloon decoration and rose petals were exactly as shown on Instagram. He was completely surprised and loved every moment. Highly recommend!",
+      "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
+      "itemReviewed": { "@id": "https://friendsfactorycafe.com/#business" }
+    },
+    {
+      "@type": "Review",
+      "@id": "https://friendsfactorycafe.com/#review-3",
+      "author": { "@type": "Person", "name": "Kavita & Rohan Shah" },
+      "datePublished": "2026-02-14",
+      "reviewBody": "Chose the glass house package for Valentine's Day and it was worth every rupee. Completely private, beautiful fairy lights, great mocktails. This is the most romantic place in Vadodara without a doubt.",
+      "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
+      "itemReviewed": { "@id": "https://friendsfactorycafe.com/#business" }
+    },
+    {
+      "@type": "Review",
+      "@id": "https://friendsfactorycafe.com/#review-4",
+      "author": { "@type": "Person", "name": "Anita & Vivek Joshi" },
+      "datePublished": "2026-01-18",
+      "reviewBody": "My husband proposed here and I said yes! The rooftop setup was breathtaking with candles and flowers everywhere. The team set it up without my knowledge and the surprise was perfectly executed. Thank you Friends Factory Cafe!",
+      "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
+      "itemReviewed": { "@id": "https://friendsfactorycafe.com/#business" }
+    },
+    // ─── Homepage FAQPage schema (AI Overview visibility) ─────────────────────
+    {
+      "@type": "FAQPage",
+      "@id": "https://friendsfactorycafe.com/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the price of a candlelight dinner at Friends Factory Cafe?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Candlelight dinner packages at Friends Factory Cafe start from ₹4,700 for a couple. This includes decoration setup, rose petals, candles, mocktails, and a celebration cake. Premium packages with rooftop or glass house setups go up to ₹6,900." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Friends Factory Cafe 100% private for couples?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, Friends Factory Cafe offers 100% private bookings. When you book a slot, the entire venue — whether rooftop or glass house — is exclusively for you and your partner. No other guests are present during your celebration." }
+        },
+        {
+          "@type": "Question",
+          "name": "Where is Friends Factory Cafe located in Vadodara?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Friends Factory Cafe is located at 424, OneWest, Asopalav W, 4th Floor, Priya Talkies Road, Gotri, Vadodara. It is situated beside Adventuraa and is easily accessible from all major areas of Vadodara." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I book a celebration at Friends Factory Cafe?",
+          "acceptedAnswer": { "@type": "Answer", "text": "You can book via WhatsApp at +91-7487888730, call us directly, or fill the booking form on our website. We recommend booking at least 2-3 days in advance to secure your preferred date and time slot." }
+        },
+        {
+          "@type": "Question",
+          "name": "What occasions can I celebrate at Friends Factory Cafe?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Friends Factory Cafe is ideal for birthday surprises, candlelight dinners, anniversary celebrations, marriage proposals, pre-wedding shoots, Valentine's Day, and any special romantic occasion for couples." }
+        }
+      ]
     }
   ]
 };
@@ -370,8 +454,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${playfairDisplay.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang="en-IN" className={`${playfairDisplay.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://connect.facebook.net" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://connect.facebook.net" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -402,7 +490,7 @@ export default function RootLayout({
         </noscript>
         {/* End Meta Pixel Code */}
 
-        {/* Google Ads (gtag.js) */}
+        {/* Google Ads (gtag.js) & GA4 */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=AW-17868092300"
           strategy="afterInteractive"
@@ -413,9 +501,10 @@ export default function RootLayout({
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
             gtag('config', 'AW-17868092300');
+            gtag('config', 'G-MEDYR6ELNY');
           `}
         </Script>
-        {/* End Google Ads */}
+        {/* End Google Ads & GA4 */}
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider

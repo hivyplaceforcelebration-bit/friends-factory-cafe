@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vercel env *)",
+      "Bash(BASE=\"/Applications/CAFE BUSINESS ALL WEBSITES/FRIENDS FACTORY/FriendsFactoryCafe.com\" *)",
+      "Bash(curl -s \"https://friendsfactorycafe.com/sitemap.xml\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://www.google.com/ping?sitemap=https://friendsfactorycafe.com/sitemap.xml\")",
+      "Bash(curl -sv \"https://www.google.com/ping?sitemap=https://friendsfactorycafe.com/sitemap.xml\")",
+      "mcp__scheduled-tasks__create_scheduled_task",
+      "Bash(mkdir -p \"/Applications/CAFE BUSINESS ALL WEBSITES/FRIENDS FACTORY/FriendsFactoryCafe.com/supabase/migrations\" && mkdir -p \"/Applications/CAFE BUSINESS ALL WEBSITES/FRIENDS FACTORY/FriendsFactoryCafe.com/app/api/reviews/[id]/archive\" && mkdir -p \"/Applications/CAFE BUSINESS ALL WEBSITES/FRIENDS FACTORY/FriendsFactoryCafe.com/app/google-review\" && mkdir -p \"/Applications/CAFE BUSINESS ALL WEBSITES/FRIENDS FACTORY/FriendsFactoryCafe.com/scripts\")",
+      "WebFetch(domain:friendsfactorycafe.com)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__navigate",
+      "mcp__Claude_in_Chrome__browser_batch",
+      "mcp__Claude_in_Chrome__computer",
+      "Bash(grep -E \"^\\(app|src\\)$\")",
+      "Bash(npx tsx *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('client_email:', d.get\\('client_email','NOT FOUND'\\)\\); print\\('project_id:', d.get\\('project_id','NOT FOUND'\\)\\)\")",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

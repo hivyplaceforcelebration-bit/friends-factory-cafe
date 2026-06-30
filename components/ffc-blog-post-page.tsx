@@ -538,11 +538,13 @@ function generateArticleContent(post: BlogPost): string {
   // Find matching template or use default
   let content = contentTemplates[category] || contentTemplates['Date Night'];
   
-  // Add closing section
+  // Add closing section with internal links (boosts crawl depth + topical authority)
   content += `
     <h2>Visit Friends Factory Cafe</h2>
     <p>Located at ${siteConfig.address}, Friends Factory Cafe is Vadodara's premier rooftop celebration venue. We specialize in creating unforgettable moments for couples and families.</p>
-    
+
+    <p>Explore our most popular experiences: <a href="/candlelight-dinner-vadodara">Candlelight Dinner in Vadodara</a>, <a href="/birthday-party-vadodara">Birthday Party Vadodara</a>, <a href="/couple-cafe-vadodara">Couple Cafe Vadodara</a>, and <a href="/romantic-cafe-vadodara">Romantic Cafe Vadodara</a>. View all <a href="/packages">celebration packages from ₹4,700</a>.</p>
+
     <p>Ready to plan your celebration? <strong>Call us at ${siteConfig.phone}</strong> or WhatsApp to book your special experience today.</p>
   `;
 

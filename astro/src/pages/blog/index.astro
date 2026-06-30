@@ -1,0 +1,127 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import WhatsAppFloat from '../../components/WhatsAppFloat.astro';
+import { siteConfig } from '../../lib/config';
+
+const blogPosts = [
+  {
+    slug: "candlelight-dinner-vadodara-guide",
+    title: "The Ultimate Guide to Candlelight Dinner in Vadodara",
+    excerpt: "Planning a romantic candlelight dinner in Vadodara? Here's everything you need to know — venues, packages, tips, and how to make it truly special.",
+    category: "Date Ideas",
+    emoji: "🕯️",
+    date: "2024-12-01",
+    readTime: "5 min read",
+  },
+  {
+    slug: "birthday-surprise-ideas-vadodara",
+    title: "10 Unique Birthday Surprise Ideas in Vadodara",
+    excerpt: "Looking for the perfect birthday surprise for your partner in Vadodara? From midnight setups to romantic dinner surprises — here are 10 ideas they'll love.",
+    category: "Birthday",
+    emoji: "🎂",
+    date: "2024-11-20",
+    readTime: "7 min read",
+  },
+  {
+    slug: "proposal-ideas-vadodara",
+    title: "Best Proposal Ideas in Vadodara for 2024",
+    excerpt: "Planning to pop the question in Vadodara? Discover the most romantic proposal setups — from rose arch rooftops to private glass house moments.",
+    category: "Proposal",
+    emoji: "💍",
+    date: "2024-11-10",
+    readTime: "6 min read",
+  },
+  {
+    slug: "anniversary-celebration-vadodara",
+    title: "How to Plan the Perfect Anniversary Celebration in Vadodara",
+    excerpt: "Celebrate your anniversary in style with a private dinner setup in Vadodara. Tips, venues, and package ideas for every budget.",
+    category: "Anniversary",
+    emoji: "💑",
+    date: "2024-10-28",
+    readTime: "5 min read",
+  },
+  {
+    slug: "rooftop-dining-vadodara",
+    title: "Best Rooftop Dining Experiences in Vadodara",
+    excerpt: "Experience Vadodara from above! Explore the best rooftop dining options for couples — panoramic views, candlelight, and unforgettable memories.",
+    category: "Date Ideas",
+    emoji: "🌃",
+    date: "2024-10-15",
+    readTime: "4 min read",
+  },
+  {
+    slug: "romantic-date-ideas-vadodara",
+    title: "7 Romantic Date Ideas in Vadodara for Couples",
+    excerpt: "From candlelight dinners to scenic rooftop evenings — here are 7 truly romantic date ideas in Vadodara that will impress your partner.",
+    category: "Date Ideas",
+    emoji: "🌙",
+    date: "2024-09-30",
+    readTime: "6 min read",
+  },
+];
+---
+<Layout
+  title="Blog | Friends Factory Cafe | Romantic Date Ideas & Celebration Tips in Vadodara"
+  description="Read expert tips on planning candlelight dinners, birthday surprises, proposals, and anniversary celebrations in Vadodara. Blog by Friends Factory Cafe."
+  canonical="https://friendsfactorycafe.com/blog/"
+  breadcrumbs={[
+    { name: "Home", url: siteConfig.website },
+    { name: "Blog", url: `${siteConfig.website}/blog/` },
+  ]}
+>
+  <Header />
+
+  <main class="pt-24">
+    <section class="py-16 bg-gradient-to-br from-amber-50 via-white to-orange-50">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <h1 class="font-serif text-4xl sm:text-5xl font-bold text-stone-900 mb-4">
+            Celebration <span class="gradient-text">Tips & Ideas</span>
+          </h1>
+          <p class="text-stone-500 text-lg max-w-xl mx-auto">
+            Expert guides on planning romantic dinners, surprise birthdays, proposals, and memorable celebrations in Vadodara.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {blogPosts.map(post => (
+            <article class="glass rounded-2xl overflow-hidden card-hover group">
+              <div class="bg-gradient-to-br from-amber-50 to-orange-50 h-32 flex items-center justify-center text-5xl">
+                {post.emoji}
+              </div>
+              <div class="p-5">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-xs bg-amber-100 text-amber-700 font-medium px-2 py-0.5 rounded-full">{post.category}</span>
+                  <span class="text-xs text-stone-400">{post.readTime}</span>
+                </div>
+                <h2 class="font-serif font-bold text-stone-900 text-base mb-2 leading-snug">
+                  {post.title}
+                </h2>
+                <p class="text-xs text-stone-500 leading-relaxed">{post.excerpt}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <!-- CTA -->
+        <div class="mt-12 glass rounded-2xl p-8 text-center">
+          <h2 class="font-serif text-2xl font-bold text-stone-900 mb-3">Ready to Create Your Own Love Story?</h2>
+          <p class="text-stone-500 mb-6">Book a private celebration at Friends Factory Cafe and let us make it magical.</p>
+          <a
+            href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20I%20read%20your%20blog%20and%20want%20to%20book%20a%20celebration!`}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-primary gap-2"
+          >
+            Book Now on WhatsApp
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+  <WhatsAppFloat />
+</Layout>

@@ -1,1 +1,16 @@
-{}
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "candlelightdinnervadodara.com" }],
+      "destination": "https://friendsfactorycafe.com/:path*",
+      "statusCode": 301
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.candlelightdinnervadodara.com" }],
+      "destination": "https://friendsfactorycafe.com/:path*",
+      "statusCode": 301
+    }
+  ]
+}

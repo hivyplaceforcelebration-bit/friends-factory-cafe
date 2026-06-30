@@ -78,7 +78,45 @@ export default function FFCKeywordPage({ service, keyword }: KeywordPageProps) {
   // Use handcrafted content if available, otherwise use generated
   const hasUniqueContent = !!handcraftedContent;
 
+  // ─── FAQPage JSON-LD (critical for Google AI Overview & AI search citations) ─
+  const faqItems: { question: string; answer: string }[] =
+    hasUniqueContent ? handcraftedContent!.faqs : (generatedContent.faqContent ?? []);
+  const faqPageSchema = faqItems.length > 0
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": faqItems.map(faq => ({
+          "@type": "Question",
+          "name": faq.question,
+          "acceptedAnswer": { "@type": "Answer", "text": faq.answer }
+        }))
+      }
+    : null;
+
+  // ─── BreadcrumbList JSON-LD (E-E-A-T + navigation signals) ──────────────────
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://friendsfactorycafe.com" },
+      { "@type": "ListItem", "position": 2, "name": "Services", "item": "https://friendsfactorycafe.com/services" },
+      { "@type": "ListItem", "position": 3, "name": service.name, "item": `https://friendsfactorycafe.com/${service.slug}` },
+      { "@type": "ListItem", "position": 4, "name": keyword.title, "item": `https://friendsfactorycafe.com/${keyword.slug}` }
+    ]
+  };
+
   return (
+    <>
+    {faqPageSchema && (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema) }}
+      />
+    )}
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+    />
     <div className="min-h-screen bg-white">
       <FFCHeader />
       
@@ -477,5 +515,6 @@ export default function FFCKeywordPage({ service, keyword }: KeywordPageProps) {
       <FFCFooter />
       <FFCWhatsAppFloat />
     </div>
+    </>
   );
 }

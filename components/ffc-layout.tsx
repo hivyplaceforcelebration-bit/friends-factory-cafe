@@ -2,9 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Menu, X, Phone, Heart, Search, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { Menu, Phone, Heart, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { siteConfig, serviceCategories, vadodaraAreas } from '@/lib/ffc-config';
+import { siteConfig } from '@/lib/ffc-config';
 import {
   Sheet,
   SheetContent,
@@ -58,7 +58,7 @@ export function FFCHeader() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-6">
             {navigation.map((item) => (
               <Link
                 key={item.name}
@@ -68,7 +68,28 @@ export function FFCHeader() {
                 {item.name}
               </Link>
             ))}
+            {/* Vadodara location badge - desktop */}
+            <a
+              href="https://maps.google.com/?q=Friends+Factory+Cafe+Vadodara"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-full text-sm font-semibold hover:bg-amber-100 transition-colors"
+            >
+              <MapPin className="h-3.5 w-3.5 fill-amber-500 text-amber-600" />
+              Vadodara
+            </a>
           </div>
+
+          {/* Vadodara location badge - mobile only */}
+          <a
+            href="https://maps.google.com/?q=Friends+Factory+Cafe+Vadodara"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="lg:hidden flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold hover:bg-amber-100 transition-colors"
+          >
+            <MapPin className="h-3 w-3 fill-amber-500 text-amber-600" />
+            Vadodara
+          </a>
 
           {/* Right Side - Phone & Actions */}
           <div className="flex items-center gap-4">
@@ -137,23 +158,43 @@ export function FFCHeader() {
   );
 }
 
+// Curated footer keyword links — 18 highest-value pages only (no link-farm signal)
+const footerKeywords = [
+  { slug: "candlelight-dinner-vadodara", title: "Candlelight Dinner" },
+  { slug: "birthday-party-vadodara", title: "Birthday Party" },
+  { slug: "date-night-vadodara", title: "Date Night" },
+  { slug: "couple-cafe-vadodara", title: "Couple Cafe" },
+  { slug: "glass-house-cafe-vadodara", title: "Glass House Cafe" },
+  { slug: "romantic-cafe-vadodara", title: "Romantic Cafe" },
+  { slug: "best-cafe-vadodara", title: "Best Cafe Vadodara" },
+  { slug: "birthday-surprise-for-boyfriend-vadodara", title: "Birthday Surprise for Boyfriend" },
+  { slug: "birthday-surprise-for-girlfriend-vadodara", title: "Birthday Surprise for Girlfriend" },
+  { slug: "proposal-setup-vadodara", title: "Proposal Setup" },
+  { slug: "rooftop-candlelight-dinner-vadodara", title: "Rooftop Candlelight Dinner" },
+  { slug: "anniversary-dinner-vadodara", title: "Anniversary Dinner" },
+  { slug: "pre-wedding-photoshoot-vadodara", title: "Pre-Wedding Photoshoot" },
+  { slug: "surprise-birthday-party-vadodara", title: "Surprise Birthday Party" },
+  { slug: "private-proposal-vadodara", title: "Private Proposal" },
+  { slug: "valentines-day-celebration-vadodara", title: "Valentine's Day" },
+  { slug: "surprise-date-for-girlfriend-vadodara", title: "Surprise Date" },
+  { slug: "rooftop-date-vadodara", title: "Rooftop Date" },
+];
+
+// Curated footer area links — top 10 areas only
+const footerAreas = [
+  { slug: "alkapuri-vadodara", name: "Alkapuri" },
+  { slug: "akota-vadodara", name: "Akota" },
+  { slug: "fatehgunj-vadodara", name: "Fatehgunj" },
+  { slug: "sayajigunj-vadodara", name: "Sayajigunj" },
+  { slug: "vasna-vadodara", name: "Vasna" },
+  { slug: "gotri-vadodara", name: "Gotri" },
+  { slug: "subhanpura-vadodara", name: "Subhanpura" },
+  { slug: "manjalpur-vadodara", name: "Manjalpur" },
+  { slug: "waghodia-road-vadodara", name: "Waghodia Road" },
+  { slug: "race-course-vadodara", name: "Race Course" },
+];
+
 export function FFCFooter() {
-  const [showAllKeywords, setShowAllKeywords] = useState(false);
-  const [showAllAreas, setShowAllAreas] = useState(false);
-  
-  // Get all keywords from all service categories
-  const allKeywords = serviceCategories.flatMap(category => 
-    category.keywords.map(keyword => ({
-      slug: keyword.slug,
-      title: keyword.title,
-      serviceSlug: category.slug
-    }))
-  );
-  
-  // Display first 20 keywords initially, all when expanded
-  const visibleKeywords = showAllKeywords ? allKeywords : allKeywords.slice(0, 20);
-  const visibleAreas = showAllAreas ? vadodaraAreas : vadodaraAreas.slice(0, 15);
-  
   return (
     <footer className="bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-16">
@@ -178,7 +219,7 @@ export function FFCFooter() {
             <ul className="space-y-2">
               {navigation.map((item) => (
                 <li key={item.name}>
-                  <Link 
+                  <Link
                     href={item.href}
                     className="text-gray-400 hover:text-amber-400 transition-colors"
                   >
@@ -195,7 +236,7 @@ export function FFCFooter() {
             <ul className="space-y-2">
               {serviceLinks.map((item) => (
                 <li key={item.name}>
-                  <Link 
+                  <Link
                     href={item.href}
                     className="text-gray-400 hover:text-amber-400 transition-colors"
                   >
@@ -212,7 +253,7 @@ export function FFCFooter() {
             <div className="space-y-4">
               <div>
                 <p className="text-gray-500 text-sm">Phone</p>
-                <a 
+                <a
                   href={`tel:${siteConfig.phone}`}
                   className="text-amber-400 font-medium hover:text-amber-300"
                 >
@@ -221,7 +262,7 @@ export function FFCFooter() {
               </div>
               <div>
                 <p className="text-gray-500 text-sm">Email</p>
-                <a 
+                <a
                   href={`mailto:${siteConfig.email}`}
                   className="text-amber-400 hover:text-amber-300"
                 >
@@ -236,40 +277,38 @@ export function FFCFooter() {
           </div>
         </div>
 
-        {/* SEO Links Section - Keywords */}
+        {/* SEO Links — 18 curated keywords (no expand/collapse — clean for Google) */}
         <div className="border-t border-gray-800 mt-12 pt-8">
-          <h4 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">Popular Services in Vadodara</h4>
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {visibleKeywords.map((keyword) => (
-              <Link 
-                key={keyword.slug}
-                href={`/${keyword.slug}`}
+          <h4 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">
+            Popular Services in Vadodara
+          </h4>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {footerKeywords.map((kw) => (
+              <Link
+                key={kw.slug}
+                href={`/${kw.slug}`}
                 className="text-xs text-gray-500 hover:text-amber-400 transition-colors"
               >
-                {keyword.title}
+                {kw.title}
               </Link>
             ))}
           </div>
-          {allKeywords.length > 20 && (
-            <button 
-              onClick={() => setShowAllKeywords(!showAllKeywords)}
-              className="mt-3 text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
-            >
-              {showAllKeywords ? (
-                <>Show Less <ChevronUp className="h-3 w-3" /></>
-              ) : (
-                <>Show All {allKeywords.length} Services <ChevronDown className="h-3 w-3" /></>
-              )}
-            </button>
-          )}
+          <Link
+            href="/services"
+            className="inline-block mt-3 text-xs text-amber-500 hover:text-amber-400 transition-colors"
+          >
+            → View All Services
+          </Link>
         </div>
 
-        {/* SEO Links Section - Areas */}
+        {/* SEO Links — 10 curated areas */}
         <div className="border-t border-gray-800 mt-8 pt-8">
-          <h4 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">Areas We Serve in Vadodara</h4>
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {visibleAreas.map((area) => (
-              <Link 
+          <h4 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider">
+            Areas We Serve in Vadodara
+          </h4>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {footerAreas.map((area) => (
+              <Link
                 key={area.slug}
                 href={`/${area.slug}`}
                 className="text-xs text-gray-500 hover:text-amber-400 transition-colors"
@@ -278,18 +317,12 @@ export function FFCFooter() {
               </Link>
             ))}
           </div>
-          {vadodaraAreas.length > 15 && (
-            <button 
-              onClick={() => setShowAllAreas(!showAllAreas)}
-              className="mt-3 text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
-            >
-              {showAllAreas ? (
-                <>Show Less <ChevronUp className="h-3 w-3" /></>
-              ) : (
-                <>Show All {vadodaraAreas.length} Areas <ChevronDown className="h-3 w-3" /></>
-              )}
-            </button>
-          )}
+          <Link
+            href="/areas"
+            className="inline-block mt-3 text-xs text-amber-500 hover:text-amber-400 transition-colors"
+          >
+            → View All Areas
+          </Link>
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8">
@@ -298,11 +331,11 @@ export function FFCFooter() {
               © {new Date().getFullYear()} Friends Factory Cafe. All rights reserved.
             </p>
             <div className="flex items-center gap-6">
-              <Link href="/privacy" className="text-gray-500 hover:text-gray-300 text-sm">
+              <Link href="/privacy-policy" className="text-gray-500 hover:text-gray-300 text-sm">
                 Privacy Policy
               </Link>
-              <Link href="/terms" className="text-gray-500 hover:text-gray-300 text-sm">
-                Terms of Service
+              <Link href="/terms-conditions" className="text-gray-500 hover:text-gray-300 text-sm">
+                Terms &amp; Conditions
               </Link>
             </div>
           </div>

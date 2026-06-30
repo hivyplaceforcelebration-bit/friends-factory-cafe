@@ -1,0 +1,173 @@
+---
+import '../styles/globals.css';
+import { siteConfig } from '../lib/config';
+
+interface Props {
+  title: string;
+  description: string;
+  canonical?: string;
+  image?: string;
+  schema?: object | object[];
+  breadcrumbs?: { name: string; url: string }[];
+  faqs?: { question: string; answer: string }[];
+}
+
+const {
+  title,
+  description,
+  canonical,
+  image = '/og-image.jpg',
+  schema,
+  breadcrumbs,
+  faqs,
+} = Astro.props;
+
+const canonicalUrl = canonical || new URL(Astro.url.pathname, siteConfig.website).href;
+const ogImage = new URL(image, siteConfig.website).href;
+
+const localBusinessSchema = {
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  "name": siteConfig.name,
+  "url": siteConfig.website,
+  "telephone": siteConfig.phone,
+  "email": siteConfig.email,
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "424, OneWest, Asopalav W, 4th Floor, Priya Talkies Road, Gotri",
+    "addressLocality": "Vadodara",
+    "addressRegion": "Gujarat",
+    "postalCode": "391101",
+    "addressCountry": "IN"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": 22.3072,
+    "longitude": 73.1812
+  },
+  "image": ogImage,
+  "priceRange": "₹₹",
+  "servesCuisine": "Romantic Dining",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": siteConfig.rating,
+    "reviewCount": siteConfig.reviewCount,
+    "bestRating": "5"
+  },
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    "opens": "11:00",
+    "closes": "23:00"
+  }
+};
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": siteConfig.name,
+  "url": siteConfig.website,
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": `${siteConfig.website}/search?q={search_term_string}`,
+    "query-input": "required name=search_term_string"
+  }
+};
+
+const breadcrumbSchema = breadcrumbs && breadcrumbs.length > 0 ? {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": breadcrumbs.map((crumb, idx) => ({
+    "@type": "ListItem",
+    "position": idx + 1,
+    "name": crumb.name,
+    "item": crumb.url
+  }))
+} : null;
+
+const faqSchema = faqs && faqs.length > 0 ? {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": faqs.map(faq => ({
+    "@type": "Question",
+    "name": faq.question,
+    "acceptedAnswer": {
+      "@type": "Answer",
+      "text": faq.answer
+    }
+  }))
+} : null;
+
+const allSchemas = [localBusinessSchema, websiteSchema, breadcrumbSchema, faqSchema, schema]
+  .flat()
+  .filter(Boolean);
+
+const ga4Id = siteConfig.tracking.ga4;
+const verificationToken = siteConfig.tracking.googleVerification;
+---
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonicalUrl} />
+
+  <!-- Geo tags -->
+  <meta name="geo.region" content="IN-GJ" />
+  <meta name="geo.placename" content="Vadodara" />
+  <meta name="geo.position" content="22.3072;73.1812" />
+  <meta name="ICBM" content="22.3072, 73.1812" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:image" content={ogImage} />
+  <meta property="og:site_name" content={siteConfig.name} />
+  <meta property="og:locale" content="en_IN" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImage} />
+
+  <!-- Theme -->
+  <meta name="theme-color" content="#D97706" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Google Verification -->
+  {!verificationToken.startsWith('TODO_') && (
+    <meta name="google-site-verification" content={verificationToken} />
+  )}
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+  <!-- JSON-LD Schemas -->
+  {allSchemas.map(s => (
+    <script type="application/ld+json" set:html={JSON.stringify(s)} />
+  ))}
+
+  <!-- GA4 -->
+  <script async src={`https://www.googletagmanager.com/gtag/js?id=${ga4Id}`}></script>
+  <script define:vars={{ ga4Id }}>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', ga4Id);
+  </script>
+</head>
+<body class="min-h-screen bg-white text-stone-900">
+  <slot />
+</body>
+</html>

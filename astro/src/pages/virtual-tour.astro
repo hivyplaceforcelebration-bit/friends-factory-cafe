@@ -1,0 +1,112 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import WhatsAppFloat from '../components/WhatsAppFloat.astro';
+import { siteConfig } from '../lib/config';
+---
+<Layout
+  title="Virtual Tour | Friends Factory Cafe Vadodara | See Our Romantic Venue"
+  description="Take a virtual tour of Friends Factory Cafe, Vadodara's most romantic celebration venue. Explore our private rooftop, glass house setups, and decoration styles before booking."
+  canonical="https://friendsfactorycafe.com/virtual-tour/"
+  breadcrumbs={[
+    { name: "Home", url: siteConfig.website },
+    { name: "Virtual Tour", url: `${siteConfig.website}/virtual-tour/` },
+  ]}
+>
+  <Header />
+
+  <main class="pt-24">
+    <section class="py-16 bg-gradient-to-br from-amber-50 via-white to-orange-50">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <h1 class="font-serif text-4xl sm:text-5xl font-bold text-stone-900 mb-4">
+            Virtual <span class="gradient-text">Tour</span>
+          </h1>
+          <p class="text-stone-500 text-lg max-w-xl mx-auto">
+            Take a look at our beautiful private celebration spaces before you book. Every setup is crafted with love.
+          </p>
+        </div>
+
+        <!-- Venue Highlights -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {[
+            { emoji: "🏠", title: "Glass House", desc: "Our signature glass house setups are intimate, romantic, and visually stunning. Perfect for candlelight dinners and proposals." },
+            { emoji: "🌇", title: "Private Rooftop", desc: "Celebrate under the open sky with panoramic Vadodara city views. Fairy lights, candles, and your favourite music await." },
+            { emoji: "🌹", title: "Romantic Decor", desc: "From rose petal pathways to balloon arrangements — every setup is photo-ready and Instagram-worthy." },
+          ].map(v => (
+            <div class="glass rounded-2xl p-6 text-center card-hover">
+              <div class="text-4xl mb-3">{v.emoji}</div>
+              <h2 class="font-serif font-bold text-stone-900 mb-2">{v.title}</h2>
+              <p class="text-sm text-stone-500 leading-relaxed">{v.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <!-- Instagram CTA -->
+        <div class="glass rounded-2xl p-8 text-center mb-8">
+          <div class="text-5xl mb-4">📸</div>
+          <h2 class="font-serif text-2xl font-bold text-stone-900 mb-3">See Real Setups on Instagram</h2>
+          <p class="text-stone-500 text-sm mb-6 max-w-md mx-auto">
+            Browse hundreds of real celebration photos from our venue on Instagram. See exactly what your setup could look like!
+          </p>
+          <div class="flex flex-wrap gap-3 justify-center">
+            <a
+              href={siteConfig.socialLinks.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white font-semibold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity"
+            >
+              📷 Follow on Instagram
+            </a>
+            <a
+              href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20can%20you%20share%20some%20photos%20of%20your%20setup%3F`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn-primary gap-2"
+            >
+              WhatsApp for Photos
+            </a>
+          </div>
+        </div>
+
+        <!-- Setup Types -->
+        <div class="mb-10">
+          <h2 class="font-serif text-2xl font-bold text-stone-900 mb-6 text-center">Explore Our Setup Styles</h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {[
+              { emoji: "🕯️", name: "Classic Candlelight" },
+              { emoji: "🎂", name: "Birthday Balloon Setup" },
+              { emoji: "💍", name: "Proposal Rose Arch" },
+              { emoji: "💑", name: "Anniversary Tableside" },
+              { emoji: "🌙", name: "Moonlit Rooftop" },
+              { emoji: "🏡", name: "Glass House Intimate" },
+            ].map(s => (
+              <div class="glass rounded-xl p-4 text-center card-hover">
+                <div class="text-3xl mb-2">{s.emoji}</div>
+                <div class="text-xs font-semibold text-stone-700">{s.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-8 text-center">
+          <h2 class="font-serif text-2xl font-bold text-white mb-3">Love What You See?</h2>
+          <p class="text-amber-100 mb-6">Book your slot today — slots fill up fast, especially on weekends!</p>
+          <a
+            href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20I%20saw%20your%20virtual%20tour%20and%20want%20to%20book%20a%20celebration!`}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 bg-white text-amber-700 font-bold px-8 py-4 rounded-xl hover:bg-amber-50 transition-colors"
+          >
+            Book Now on WhatsApp
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+  <WhatsAppFloat />
+</Layout>

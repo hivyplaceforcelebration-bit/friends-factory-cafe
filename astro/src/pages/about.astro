@@ -1,0 +1,136 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import WhatsAppFloat from '../components/WhatsAppFloat.astro';
+import { siteConfig } from '../lib/config';
+---
+<Layout
+  title="About Us | Friends Factory Cafe Vadodara | Private Romantic Celebration Venue"
+  description="Learn about Friends Factory Cafe — Vadodara's #1 private romantic venue. Founded on a belief that every celebration deserves a perfect setting. Located at Gotri, Vadodara."
+  canonical="https://friendsfactorycafe.com/about/"
+  breadcrumbs={[
+    { name: "Home", url: siteConfig.website },
+    { name: "About", url: `${siteConfig.website}/about/` },
+  ]}
+>
+  <Header />
+
+  <main class="pt-24">
+    <!-- Hero -->
+    <section class="py-16 bg-gradient-to-br from-amber-50 via-white to-orange-50">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h1 class="font-serif text-4xl sm:text-5xl font-bold text-stone-900 mb-4">
+          About <span class="gradient-text">Friends Factory Cafe</span>
+        </h1>
+        <p class="text-stone-500 text-lg max-w-2xl mx-auto">
+          Vadodara's most beloved private celebration venue — where every occasion becomes a lifetime memory.
+        </p>
+      </div>
+    </section>
+
+    <!-- Story -->
+    <section class="py-16 bg-white">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <h2 class="font-serif text-3xl font-bold text-stone-900 mb-4">Our Story</h2>
+            <p class="text-stone-600 leading-relaxed mb-4">
+              Friends Factory Cafe was born from a simple but powerful belief: every couple in Vadodara deserves a private, intimate space where they can celebrate life's most precious moments without compromise.
+            </p>
+            <p class="text-stone-600 leading-relaxed mb-4">
+              Nestled on the 4th floor of OneWest in Gotri, Vadodara, we've created a sanctuary of romance — featuring private glass houses, a stunning rooftop with city views, and carefully crafted packages that take care of every detail so you can focus entirely on the moment.
+            </p>
+            <p class="text-stone-600 leading-relaxed">
+              From candlelight dinners and birthday surprises to proposals and anniversary celebrations, we've helped over {siteConfig.reviewCount} couples create memories that last a lifetime.
+            </p>
+          </div>
+          <div class="glass rounded-2xl p-8">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="text-center p-4 bg-amber-50 rounded-xl">
+                <div class="font-serif text-3xl font-bold gradient-text">{siteConfig.reviewCount}+</div>
+                <div class="text-xs text-stone-500 mt-1">Happy Couples</div>
+              </div>
+              <div class="text-center p-4 bg-amber-50 rounded-xl">
+                <div class="font-serif text-3xl font-bold gradient-text">{siteConfig.rating}⭐</div>
+                <div class="text-xs text-stone-500 mt-1">Average Rating</div>
+              </div>
+              <div class="text-center p-4 bg-amber-50 rounded-xl">
+                <div class="font-serif text-3xl font-bold gradient-text">8</div>
+                <div class="text-xs text-stone-500 mt-1">Unique Packages</div>
+              </div>
+              <div class="text-center p-4 bg-amber-50 rounded-xl">
+                <div class="font-serif text-3xl font-bold gradient-text">100%</div>
+                <div class="text-xs text-stone-500 mt-1">Private Venue</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Values -->
+    <section class="py-16 bg-stone-50">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-10">
+          <h2 class="font-serif text-3xl font-bold text-stone-900 mb-3">Why Couples Choose Us</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[
+            { emoji: "🔒", title: "100% Private", desc: "Each booking is exclusively yours. No shared spaces, no strangers — just your perfect private moment." },
+            { emoji: "🍽️", title: "All-Inclusive Packages", desc: "Everything from decor and candles to complete vegetarian meal and welcome drink is included." },
+            { emoji: "📸", title: "Photo-Ready Setups", desc: "Every detail is designed to be visually stunning — your memories will look as beautiful as they feel." },
+            { emoji: "⚡", title: "Instant WhatsApp Booking", desc: "Message us and get confirmed in minutes. No lengthy forms or advance payments required." },
+            { emoji: "✨", title: "Personalised Experiences", desc: "Tell us your story and we'll customise the setup to match your occasion perfectly." },
+            { emoji: "📍", title: "Prime Vadodara Location", desc: "Located at Gotri — easily accessible from Alkapuri, Sayajigunj, Fatehgunj, and all major areas." },
+          ].map(v => (
+            <div class="glass rounded-2xl p-5 card-hover">
+              <div class="text-3xl mb-3">{v.emoji}</div>
+              <h3 class="font-serif font-bold text-stone-900 mb-2">{v.title}</h3>
+              <p class="text-sm text-stone-500 leading-relaxed">{v.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Location -->
+    <section class="py-16 bg-white">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="glass rounded-2xl p-8">
+          <h2 class="font-serif text-2xl font-bold text-stone-900 mb-6 text-center">Find Us in Vadodara</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 class="font-semibold text-stone-800 mb-3">📍 Address</h3>
+              <p class="text-stone-600 text-sm leading-relaxed">{siteConfig.address}</p>
+              <div class="mt-4 space-y-2">
+                <a href={`tel:${siteConfig.phone}`} class="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-600">
+                  📞 {siteConfig.phone}
+                </a>
+                <a href={`mailto:${siteConfig.email}`} class="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-600">
+                  ✉️ {siteConfig.email}
+                </a>
+              </div>
+            </div>
+            <div>
+              <h3 class="font-semibold text-stone-800 mb-3">🕐 Opening Hours</h3>
+              <p class="text-stone-600 text-sm">Monday – Sunday: 11:00 AM – 11:00 PM</p>
+              <p class="text-stone-500 text-xs mt-2">Evening slots (6 PM – 10 PM) are most popular. Book in advance!</p>
+              <a
+                href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20I%20want%20to%20book%20a%20celebration`}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn-primary text-sm mt-4 inline-flex"
+              >
+                Book on WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+  <WhatsAppFloat />
+</Layout>

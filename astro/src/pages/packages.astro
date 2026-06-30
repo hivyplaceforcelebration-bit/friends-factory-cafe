@@ -1,0 +1,157 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import WhatsAppFloat from '../components/WhatsAppFloat.astro';
+import { siteConfig, packages, menuItems } from '../lib/config';
+---
+<Layout
+  title="Candlelight Dinner Packages Vadodara | Friends Factory Cafe | From ₹4,700"
+  description="Explore all 8 candlelight dinner and celebration packages at Friends Factory Cafe, Vadodara. Rooftop & glass house setups from ₹4,700. All-inclusive with complete vegetarian meal, decorations & welcome drink."
+  canonical="https://friendsfactorycafe.com/packages/"
+  breadcrumbs={[
+    { name: "Home", url: siteConfig.website },
+    { name: "Packages", url: `${siteConfig.website}/packages/` },
+  ]}
+>
+  <Header />
+
+  <main class="pt-24">
+    <!-- Hero -->
+    <section class="py-16 bg-gradient-to-br from-amber-50 via-white to-orange-50">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-full px-4 py-1.5 text-sm font-medium text-amber-700 mb-6">
+          🌹 8 Curated Experiences
+        </div>
+        <h1 class="font-serif text-4xl sm:text-5xl font-bold text-stone-900 mb-4">
+          All Celebration <span class="gradient-text">Packages</span>
+        </h1>
+        <p class="text-stone-500 text-lg max-w-2xl mx-auto">
+          Choose from 8 beautifully curated experiences — rooftop & glass house setups starting from ₹4,700. All-inclusive with complete vegetarian meal, decorations, candles & welcome drink.
+        </p>
+      </div>
+    </section>
+
+    <!-- Packages Grid -->
+    <section class="py-16 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {packages.map((pkg, idx) => (
+            <div class={`rounded-2xl overflow-hidden card-hover relative ${idx === 4 ? 'bg-gradient-to-br from-primary to-accent shadow-xl shadow-amber-200' : 'glass'}`}>
+              {idx === 4 && (
+                <div class="absolute top-4 right-4 bg-stone-900 text-white text-xs font-bold px-3 py-1 rounded-full">⭐ Most Popular</div>
+              )}
+              <div class="p-6">
+                <div class="text-4xl mb-4">{pkg.emoji}</div>
+                <h2 class={`font-serif text-xl font-bold mb-2 ${idx === 4 ? 'text-white' : 'text-stone-900'}`}>{pkg.name}</h2>
+                <div class={`text-3xl font-bold mb-4 ${idx === 4 ? 'text-white' : 'gradient-text'}`}>{pkg.price}</div>
+                <p class={`text-sm leading-relaxed mb-6 ${idx === 4 ? 'text-white/90' : 'text-stone-500'}`}>{pkg.description}</p>
+
+                <div class={`text-xs font-semibold uppercase tracking-wider mb-3 ${idx === 4 ? 'text-white/70' : 'text-amber-600'}`}>What's Included</div>
+                <ul class="space-y-1.5 mb-6">
+                  {["Private Venue (100% Exclusive)", "Welcome Drink", "Complete Vegetarian Meal", "Candle & Flower Decoration", "Ambient Music", "Dedicated Caretaker"].map(item => (
+                    <li class={`text-xs flex items-center gap-2 ${idx === 4 ? 'text-white/90' : 'text-stone-600'}`}>
+                      <span class={idx === 4 ? 'text-white' : 'text-amber-500'}>✓</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+
+                <a
+                  href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20I'm%20interested%20in%20the%20${encodeURIComponent(pkg.name)}%20package%20(${encodeURIComponent(pkg.price)})`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class={`w-full text-center block py-3 px-6 rounded-xl text-sm font-semibold transition-all ${idx === 4 ? 'bg-white text-amber-700 hover:bg-amber-50' : 'btn-primary'}`}
+                >
+                  Book This Package on WhatsApp
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Menu Section -->
+    <section class="py-16 bg-amber-50">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-10">
+          <h2 class="font-serif text-3xl font-bold text-stone-900 mb-3">What's On Your Table</h2>
+          <p class="text-stone-500">A complete vegetarian dining experience crafted with love</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="glass rounded-2xl p-5">
+            <h3 class="font-semibold text-stone-800 mb-4 flex items-center gap-2">🥗 Starters & Snacks</h3>
+            <ul class="space-y-3">
+              {menuItems.starters.map(item => (
+                <li class="flex items-start gap-2">
+                  <span class="text-xl">{item.emoji}</span>
+                  <div>
+                    <div class="text-sm font-medium text-stone-800">{item.name}</div>
+                    <div class="text-xs text-stone-500">{item.description}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div class="glass rounded-2xl p-5">
+            <h3 class="font-semibold text-stone-800 mb-4 flex items-center gap-2">🍽️ Main Course</h3>
+            <ul class="space-y-3">
+              {menuItems.mains.map(item => (
+                <li class="flex items-start gap-2">
+                  <span class="text-xl">{item.emoji}</span>
+                  <div>
+                    <div class="text-sm font-medium text-stone-800">{item.name}</div>
+                    <div class="text-xs text-stone-500">{item.description}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div class="glass rounded-2xl p-5">
+            <h3 class="font-semibold text-stone-800 mb-4 flex items-center gap-2">🍰 Desserts & Add-ons</h3>
+            <ul class="space-y-3">
+              {menuItems.desserts.map(item => (
+                <li class="flex items-start gap-2">
+                  <span class="text-xl">{item.emoji}</span>
+                  <div>
+                    <div class="text-sm font-medium text-stone-800">{item.name}</div>
+                    <div class="text-xs text-stone-500">{item.description}</div>
+                  </div>
+                </li>
+              ))}
+              <div class="mt-4 pt-4 border-t border-stone-200">
+                <div class="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Optional Add-ons</div>
+                {menuItems.addons.map(item => (
+                  <li class="flex items-center justify-between text-xs text-stone-600 py-1">
+                    <span>{item.emoji} {item.name}</span>
+                    <span class="font-semibold text-amber-700">{item.price}</span>
+                  </li>
+                ))}
+              </div>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-16 bg-gradient-to-br from-amber-500 to-amber-700">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="font-serif text-3xl font-bold text-white mb-4">Have Questions About Our Packages?</h2>
+        <p class="text-amber-100 mb-8">Our team responds instantly on WhatsApp. Ask about customisation, availability, and add-ons.</p>
+        <a
+          href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20I%20have%20some%20questions%20about%20your%20packages`}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 bg-white text-amber-700 font-bold px-8 py-4 rounded-xl hover:bg-amber-50 transition-colors shadow-lg"
+        >
+          Chat With Us on WhatsApp
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <Footer />
+  <WhatsAppFloat />
+</Layout>

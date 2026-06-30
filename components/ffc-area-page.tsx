@@ -26,7 +26,56 @@ export default function FFCAreaPage({ area }: AreaPageProps) {
   // Get unique content for this area (if available)
   const uniqueContent = getAreaContent(area.slug);
 
+  // ─── FAQPage JSON-LD (critical for Google AI Overview & AI search citations) ─
+  const areaFaqItems = uniqueContent?.faqs || [
+    {
+      question: `How do couples from ${area.name} reach Friends Factory Cafe?`,
+      answer: `Friends Factory Cafe is conveniently located in Vadodara and easily accessible from ${area.name}. You can reach us by car, auto, or cab in a short time. Contact us for exact directions.`
+    },
+    {
+      question: "Do you offer pickup services?",
+      answer: "Currently, we don't offer pickup services, but we can help guide you with the best routes from your location."
+    },
+    {
+      question: "What are the booking options available?",
+      answer: `Couples from ${area.name} can book via WhatsApp, phone call, or our online form. We recommend booking 2-3 days in advance for your preferred slot.`
+    },
+    {
+      question: "Is the venue private?",
+      answer: "Yes! Your celebration is 100% private. No other guests will be present during your booking slot."
+    },
+  ];
+  const areaFaqPageSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": areaFaqItems.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": { "@type": "Answer", "text": faq.answer }
+    }))
+  };
+
+  // ─── BreadcrumbList JSON-LD ──────────────────────────────────────────────────
+  const areaBreadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://friendsfactorycafe.com" },
+      { "@type": "ListItem", "position": 2, "name": "Areas", "item": "https://friendsfactorycafe.com/areas" },
+      { "@type": "ListItem", "position": 3, "name": `${area.name}, Vadodara`, "item": `https://friendsfactorycafe.com/${area.slug}` }
+    ]
+  };
+
   return (
+    <>
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(areaFaqPageSchema) }}
+    />
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(areaBreadcrumbSchema) }}
+    />
     <div className="min-h-screen bg-white">
       <FFCHeader />
       
@@ -561,5 +610,6 @@ export default function FFCAreaPage({ area }: AreaPageProps) {
       <FFCFooter />
       <FFCWhatsAppFloat />
     </div>
+    </>
   );
 }
