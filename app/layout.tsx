@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SocialProofNotifications } from "@/components/social-proof-notifications";
 import { Suspense } from "react";
 import { ReferralTracker } from "@/components/referral-tracker";
+import { LeadTracking } from "@/components/lead-tracking";
 // EvergreenCountdownTimer removed from global layout - now only shown on landing page
 import "./globals.css";
 
@@ -514,6 +515,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <LeadTracking />
           <SocialProofNotifications />
           <Suspense fallback={null}>
             <ReferralTracker />

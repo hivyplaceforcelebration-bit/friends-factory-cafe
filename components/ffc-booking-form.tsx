@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { siteConfig, packages } from '@/lib/ffc-config';
+import { trackFormLead, trackWhatsAppLead } from '@/lib/lead-tracking';
 
 // Form validation schema
 const ffcBookingSchema = z.object({
@@ -177,6 +178,7 @@ export function FFCBookingForm({ pageTitle, variant = 'default', packageName, de
     
     const whatsappMessage = generateWhatsAppMessage(data);
     const whatsappUrl = `https://wa.me/${siteConfig.whatsapp}?text=${whatsappMessage}`;
+    const selectedPkg = data.selectedPackage ? packages.find(p => p.slug === data.selectedPackage) : null;
 
     // Log referral conversion if applicable
     try {
@@ -184,7 +186,6 @@ export function FFCBookingForm({ pageTitle, variant = 'default', packageName, de
       if (refCookie) {
         const refCode = refCookie.split('=')[1];
         if (refCode) {
-          const selectedPkg = data.selectedPackage ? packages.find(p => p.slug === data.selectedPackage) : null;
           fetch('/api/referrals/convert', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -199,6 +200,21 @@ export function FFCBookingForm({ pageTitle, variant = 'default', packageName, de
         }
       }
     } catch {}
+
+    trackFormLead({
+      form_name: 'ffc-booking-form',
+      form_variant: variant,
+      package_name: selectedPkg?.name || packageName,
+      page_title: pageTitle,
+    });
+
+    trackWhatsAppLead({
+      form_name: 'ffc-booking-form',
+      form_variant: variant,
+      package_name: selectedPkg?.name || packageName,
+      page_title: pageTitle,
+      destination: whatsappUrl,
+    });
     
     window.open(whatsappUrl, '_blank');
 
@@ -216,7 +232,7 @@ export function FFCBookingForm({ pageTitle, variant = 'default', packageName, de
         source_domain: window.location.hostname,
         enquiry_channel: 'form',
         notes: data.selectedPackage
-          ? `Package: ${packages.find((p) => p.slug === data.selectedPackage)?.name || data.selectedPackage}`
+          ? `Package: ${selectedPkg?.name || data.selectedPackage}`
           : undefined,
       }),
     }).catch(() => {});

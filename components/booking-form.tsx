@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DomainConfig } from '@/lib/domains-config';
+import { trackFormLead, trackWhatsAppLead } from '@/lib/lead-tracking';
 
 // Form validation schema
 const bookingSchema = z.object({
@@ -95,6 +96,23 @@ export function BookingForm({ domain, pageTitle, variant = 'default', onClose }:
     // Generate WhatsApp URL and redirect
     const whatsappMessage = generateWhatsAppMessage(data);
     const whatsappUrl = `https://wa.me/${domain.whatsapp}?text=${whatsappMessage}`;
+
+    trackFormLead({
+      form_name: 'domain-booking-form',
+      form_variant: variant,
+      package_name: domain.name,
+      page_title: pageTitle,
+      site_name: domain.name,
+    });
+
+    trackWhatsAppLead({
+      form_name: 'domain-booking-form',
+      form_variant: variant,
+      package_name: domain.name,
+      page_title: pageTitle,
+      destination: whatsappUrl,
+      site_name: domain.name,
+    });
     
     // Open WhatsApp in new tab
     window.open(whatsappUrl, '_blank');
