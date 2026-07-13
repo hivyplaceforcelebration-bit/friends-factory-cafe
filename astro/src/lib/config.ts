@@ -23,9 +23,9 @@ export const siteConfig = {
     metaPixel: import.meta.env.PUBLIC_FFC_META_PIXEL || "2357920771285041",
     googleVerification: "TODO_FFC_MAIN_UNIQUE_TOKEN",
     googleAds: {
-      submitLeadForm: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_SUBMIT_LEAD_FORM || "",
-      whatsappLead: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_WHATSAPP_LEAD || "",
-      phoneLead: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_PHONE_LEAD || "",
+      submitLeadForm: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_SUBMIT_LEAD_FORM || "AW-17868092300/gb5wCL399s8cEIznlchC",
+      whatsappLead: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_WHATSAPP_LEAD || "AW-17868092300/R-6MCMD99s8cEIznlchC",
+      phoneLead: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_PHONE_LEAD || "AW-17868092300/ysejCMP99s8cEIznlchC",
     },
   },
   geo: {
