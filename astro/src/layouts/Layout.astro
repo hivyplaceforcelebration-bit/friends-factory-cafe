@@ -1,5 +1,7 @@
 ---
 import '../styles/globals.css';
+import { AttributionCapture } from '../components/AttributionCapture';
+import { LeadTracking } from '../components/LeadTracking';
 import { siteConfig } from '../lib/config';
 
 interface Props {
@@ -103,6 +105,8 @@ const allSchemas = [localBusinessSchema, websiteSchema, breadcrumbSchema, faqSch
   .filter(Boolean);
 
 const ga4Id = siteConfig.tracking.ga4;
+const googleAdsId = siteConfig.tracking.googleAdsId;
+const metaPixel = siteConfig.tracking.metaPixel;
 const verificationToken = siteConfig.tracking.googleVerification;
 ---
 <!doctype html>
@@ -160,14 +164,29 @@ const verificationToken = siteConfig.tracking.googleVerification;
 
   <!-- GA4 -->
   <script async src={`https://www.googletagmanager.com/gtag/js?id=${ga4Id}`}></script>
-  <script define:vars={{ ga4Id }}>
+  <script async src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsId}`}></script>
+  <script define:vars={{ ga4Id, googleAdsId }}>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    window.gtag = window.gtag || gtag;
     gtag('js', new Date());
     gtag('config', ga4Id);
+    gtag('config', googleAdsId);
+  </script>
+
+  <!-- Meta Pixel -->
+  <script define:vars={{ metaPixel }}>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', metaPixel);fbq('track','PageView');
   </script>
 </head>
 <body class="min-h-screen bg-white text-stone-900">
+  <LeadTracking client:load />
+  <AttributionCapture client:load />
   <slot />
 </body>
 </html>

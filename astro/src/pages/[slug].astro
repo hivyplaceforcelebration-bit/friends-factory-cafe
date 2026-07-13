@@ -207,6 +207,10 @@ const waUrl = `https://wa.me/${siteConfig.whatsapp}?text=${waMsg}`;
               <h3 class={`font-serif font-bold text-sm mb-1 ${idx === 1 ? 'text-white' : 'text-stone-900'}`}>{pkg.name}</h3>
               <div class={`text-xl font-bold mb-2 ${idx === 1 ? 'text-white' : 'gradient-text'}`}>{pkg.price}</div>
               <p class={`text-xs mb-3 ${idx === 1 ? 'text-white/90' : 'text-stone-500'}`}>{pkg.description.substring(0, 80)}...</p>
+              <div class={`text-[11px] font-semibold mb-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${idx === 1 ? 'bg-white/15 text-white' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                <span>🎥</span>
+                Add Photography / Reel Video · ₹2,500
+              </div>
               <a
                 href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20I%20want%20${encodeURIComponent(pkg.name)}%20for%20${encodeURIComponent(serviceName)}%20near%20${encodeURIComponent(areaName)}`}
                 target="_blank"

@@ -29,6 +29,9 @@ import { siteConfig, packages, menuItems } from '../lib/config';
         <p class="text-stone-500 text-lg max-w-2xl mx-auto">
           Choose from 8 beautifully curated experiences — rooftop & glass house setups starting from ₹4,700. All-inclusive with complete vegetarian meal, decorations, candles & welcome drink.
         </p>
+        <div class="inline-flex items-center gap-2 bg-stone-900 text-white rounded-full px-4 py-2 text-sm font-semibold mt-6">
+          🎥 Photography / Reel Video Add-on Available in Every Package · ₹2,500
+        </div>
       </div>
     </section>
 
@@ -49,6 +52,10 @@ import { siteConfig, packages, menuItems } from '../lib/config';
 
                 <div class={`text-xs font-semibold uppercase tracking-wider mb-3 ${idx === 4 ? 'text-white/70' : 'text-amber-600'}`}>What's Included</div>
                 <ul class="space-y-1.5 mb-6">
+                  <li class={`text-xs flex items-center gap-2 font-semibold ${idx === 4 ? 'text-white' : 'text-amber-700'}`}>
+                    <span>🎥</span>
+                    Photography / Reel Video Add-on Available (+₹2,500)
+                  </li>
                   {["Private Venue (100% Exclusive)", "Welcome Drink", "Complete Vegetarian Meal", "Candle & Flower Decoration", "Ambient Music", "Dedicated Caretaker"].map(item => (
                     <li class={`text-xs flex items-center gap-2 ${idx === 4 ? 'text-white/90' : 'text-stone-600'}`}>
                       <span class={idx === 4 ? 'text-white' : 'text-amber-500'}>✓</span>

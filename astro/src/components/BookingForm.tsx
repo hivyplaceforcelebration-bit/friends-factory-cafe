@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { trackFormLead } from "../lib/lead-tracking";
+
 interface Props {
   whatsapp: string;
   service?: string;
@@ -19,6 +21,14 @@ export default function BookingForm({ whatsapp, service = "candlelight dinner", 
     const msg = encodeURIComponent(
       `Hi Friends Factory Cafe! 🌹\n\nI'd like to book a *${occasion}* in ${location}.\n\n👤 Name: ${name}\n📅 Date: ${date}\n👥 Persons: ${persons}\n\nPlease confirm availability and share package details. Thank you!`
     );
+
+    trackFormLead({
+      form_name: "astro-booking-form",
+      form_variant: "embedded",
+      package_name: service,
+      page_title: document.title,
+    });
+
     window.open(`https://wa.me/${whatsapp}?text=${msg}`, "_blank", "noopener,noreferrer");
   };
 

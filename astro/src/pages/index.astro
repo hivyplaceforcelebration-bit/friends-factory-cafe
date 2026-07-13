@@ -104,6 +104,10 @@ const faqs = [
             <h3 class={`font-serif font-bold text-base mb-1 ${idx === 4 ? 'text-white' : 'text-stone-900'}`}>{pkg.name}</h3>
             <div class={`text-2xl font-bold mb-3 ${idx === 4 ? 'text-white' : 'gradient-text'}`}>{pkg.price}</div>
             <p class={`text-xs leading-relaxed mb-4 ${idx === 4 ? 'text-white/90' : 'text-stone-500'}`}>{pkg.description}</p>
+            <div class={`text-xs font-semibold mb-4 inline-flex items-center gap-1 rounded-full px-3 py-1 ${idx === 4 ? 'bg-white/15 text-white' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+              <span>🎥</span>
+              Photography / Reel Video Add-on ₹2,500
+            </div>
             <a
               href={`https://wa.me/${siteConfig.whatsapp}?text=Hi%20Friends%20Factory%20Cafe%2C%20I'm%20interested%20in%20the%20${encodeURIComponent(pkg.name)}%20package`}
               target="_blank"

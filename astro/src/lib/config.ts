@@ -19,7 +19,14 @@ export const siteConfig = {
   },
   tracking: {
     ga4: "G-MEDYR6ELNY",
+    googleAdsId: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_ID || "AW-17868092300",
+    metaPixel: import.meta.env.PUBLIC_FFC_META_PIXEL || "2357920771285041",
     googleVerification: "TODO_FFC_MAIN_UNIQUE_TOKEN",
+    googleAds: {
+      submitLeadForm: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_SUBMIT_LEAD_FORM || "",
+      whatsappLead: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_WHATSAPP_LEAD || "",
+      phoneLead: import.meta.env.PUBLIC_FFC_GOOGLE_ADS_PHONE_LEAD || "",
+    },
   },
   geo: {
     region: "IN-GJ",
@@ -194,6 +201,7 @@ export const menuItems = {
     { name: "Mineral Water", description: "Pure refreshing mineral water for your comfort", emoji: "💧" },
   ],
   addons: [
+    { name: "Photography / Reel Video", price: "₹2,500", description: "Capture your celebration with couple photography and a cinematic reel video add-on", emoji: "🎥" },
     { name: "Celebration Cake", price: "₹350", description: "Beautifully crafted cake to sweeten the moment", emoji: "🍰" },
     { name: "Bubbly Champagne (Non-Alcoholic)", price: "₹500", description: "Fruit fizz mocktail — pop, pour & toast to love", emoji: "🥂" },
     { name: "Flower Bouquet", price: "₹400", description: "Fresh roses arranged in a beautiful bouquet", emoji: "💐" },
