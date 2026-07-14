@@ -98,6 +98,15 @@ export default function FFCPackageDetailPage({ package: pkg }: PackageDetailPage
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+              <div className="flex items-start gap-3 bg-amber-50 border-2 border-amber-200 rounded-lg p-3 md:p-4">
+                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm md:text-base">🎥</span>
+                </div>
+                <div>
+                  <p className="text-amber-800 font-semibold text-sm md:text-base">Photography / Reel Video Add-on Available</p>
+                  <p className="text-amber-700 text-xs md:text-sm mt-1">Add professional photography + reel video in any package for ₹2,500.</p>
+                </div>
+              </div>
               {pkg.features.map((feature, index) => (
                 <div key={index} className="flex items-start gap-3 bg-white rounded-lg p-3 md:p-4">
                   <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
@@ -160,7 +169,7 @@ export default function FFCPackageDetailPage({ package: pkg }: PackageDetailPage
             </div>
 
             {/* Cake & Champagne */}
-            <div className="mt-6 md:mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="mt-6 md:mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className={`rounded-xl p-4 md:p-6 text-center ${pkg.cakeIncluded ? 'bg-gradient-to-br from-green-100 to-emerald-100 border-2 border-green-200' : 'bg-gradient-to-br from-amber-100 to-orange-100'}`}>
                 <h4 className={`font-bold text-lg md:text-xl mb-2 ${pkg.cakeIncluded ? 'text-green-800' : 'text-amber-800'}`}>🎂 Cake & Champagne</h4>
                 {pkg.cakeIncluded ? (
@@ -178,6 +187,10 @@ export default function FFCPackageDetailPage({ package: pkg }: PackageDetailPage
               <div className="bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl p-4 md:p-6 text-center">
                 <h4 className="font-bold text-lg md:text-xl text-amber-800 mb-2">⏰ 3 Mesmerizing Hours</h4>
                 <p className="text-gray-700 text-sm md:text-base">Three magical hours designed to create unforgettable memories</p>
+              </div>
+              <div className="bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl p-4 md:p-6 text-center">
+                <h4 className="font-bold text-lg md:text-xl text-amber-800 mb-2">🎥 Photography / Reel Video</h4>
+                <p className="text-gray-700 text-sm md:text-base"><strong>₹2,500/-</strong> add-on available in every package</p>
               </div>
             </div>
           </div>
