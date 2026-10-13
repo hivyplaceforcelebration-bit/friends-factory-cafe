@@ -217,6 +217,17 @@ const jsonLd = {
             "@type": "Offer",
             "itemOffered": {
               "@type": "Service",
+              "name": "Royal Red",
+              "description": "Luxurious royal red velvet canopy, candlelight, heart-shaped rose petals & complete meal",
+              "url": "https://friendsfactorycafe.com/packages/royal-red"
+            },
+            "price": "7900",
+            "priceCurrency": "INR"
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
               "name": "Forever Us LoveFrame Rooftop",
               "description": "Premium rooftop celebration with elegant photo frame setup, cake included",
               "url": "https://friendsfactorycafe.com/packages/forever-us-loveframe-rooftop"
@@ -421,28 +432,51 @@ const jsonLd = {
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "What is the price of a candlelight dinner at Friends Factory Cafe?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Candlelight dinner packages at Friends Factory Cafe start from ₹4,700 for a couple. This includes decoration setup, rose petals, candles, mocktails, and a celebration cake. Premium packages with rooftop or glass house setups go up to ₹6,900." }
+          "name": "Where is Friends Factory Cafe located in Vadodara?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Friends Factory Cafe is located at 424, OneWest, 4th Floor, Sevasi-Canal Road, Gotri, Vadodara (beside Adventuraa). It offers a private rooftop and glass house venue accessible within 10–15 minutes from Alkapuri, Akota, and Vasna."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the starting package prices at Friends Factory Cafe?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Packages start from ₹4,700 up to ₹7,900 across 9 curated romantic setups. Every package includes 100% private couple-only venue access for 3 hours, a multi-course vegetarian meal, welcome drinks, celebration decor, candlelight, and background music."
+          }
         },
         {
           "@type": "Question",
           "name": "Is Friends Factory Cafe 100% private for couples?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Yes, Friends Factory Cafe offers 100% private bookings. When you book a slot, the entire venue — whether rooftop or glass house — is exclusively for you and your partner. No other guests are present during your celebration." }
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, Friends Factory Cafe is strictly couple-only with 100% private reservations. When you reserve a slot, the entire celebration setup—rooftop or glass house—is exclusively yours with zero outside guests or interruptions."
+          }
         },
         {
           "@type": "Question",
-          "name": "Where is Friends Factory Cafe located in Vadodara?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Friends Factory Cafe is located at 424, OneWest, Asopalav W, 4th Floor, Priya Talkies Road, Gotri, Vadodara. It is situated beside Adventuraa and is easily accessible from all major areas of Vadodara." }
+          "name": "What occasions can we celebrate at Friends Factory Cafe?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Friends Factory Cafe specializes in romantic celebrations including birthday surprises, candlelight dinners, wedding anniversaries, surprise proposals, pre-wedding shoots, and Valentine's dates with custom neon signs, rose petals, and fairy-light backdrops."
+          }
         },
         {
           "@type": "Question",
-          "name": "How do I book a celebration at Friends Factory Cafe?",
-          "acceptedAnswer": { "@type": "Answer", "text": "You can book via WhatsApp at +91-7487888730, call us directly, or fill the booking form on our website. We recommend booking at least 2-3 days in advance to secure your preferred date and time slot." }
+          "name": "How do I book a celebration slot in Vadodara?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can book directly via WhatsApp at +91-7487888730 or call our concierge. Share your occasion, preferred date, and setup choice. We recommend booking 2 to 3 days in advance to reserve prime 6 PM–11 PM slots."
+          }
         },
         {
           "@type": "Question",
-          "name": "What occasions can I celebrate at Friends Factory Cafe?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Friends Factory Cafe is ideal for birthday surprises, candlelight dinners, anniversary celebrations, marriage proposals, pre-wedding shoots, Valentine's Day, and any special romantic occasion for couples." }
+          "name": "Is celebration cake and non-alcoholic champagne included?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Our signature Royal Red setup (₹7,900) includes sparkling non-alcoholic champagne and a fresh celebration cake. Fresh celebration cakes are also included across our popular rooftop setups."
+          }
         }
       ]
     }
@@ -508,6 +542,13 @@ export default function RootLayout({
         {/* End Google Ads & GA4 */}
       </head>
       <body className="font-sans antialiased">
+        {/* Accessible Skip-to-Content Landmark (Rule #36) */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-amber-600 focus:text-white focus:rounded-md focus:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-300 font-semibold text-sm transition-transform"
+        >
+          Skip to main content
+        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
