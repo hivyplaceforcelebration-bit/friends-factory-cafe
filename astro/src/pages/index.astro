@@ -94,7 +94,7 @@ const faqs = [
         <h2 class="font-serif text-3xl sm:text-4xl font-bold text-stone-900 mb-3">Our Celebration Packages</h2>
         <p class="text-stone-500 max-w-xl mx-auto">Curated experiences from ₹4,700 — all-inclusive with meal, decor & ambiance</p>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {packages.map((pkg, idx) => (
           <div class={`rounded-2xl p-6 card-hover relative ${idx === 4 ? 'bg-gradient-to-br from-primary to-accent text-white shadow-xl shadow-amber-200' : 'glass'}`}>
             {idx === 4 && (

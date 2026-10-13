@@ -34,36 +34,55 @@ export default function FFCPackagesPage() {
       {/* Packages Grid */}
       <section className="py-8 md:py-16">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {packages.map((pkg, index) => (
-              <Link key={pkg.id} href={`/packages/${pkg.slug}`}>
-                <Card className="overflow-hidden border-amber-100 hover:shadow-xl transition-all group h-full">
+              <Link key={pkg.id} href={`/packages/${pkg.slug}`} className="group">
+                <Card className="h-full rounded-2xl md:rounded-[28px] overflow-hidden bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] hover:shadow-[0_20px_45px_-10px_rgba(217,119,6,0.24),inset_0_1.5px_0_rgba(255,255,255,1)] hover:border-white hover:-translate-y-2 transition-all duration-400 ease-out flex flex-col justify-between">
                   {/* Image */}
-                  <div className="aspect-square bg-gradient-to-br from-amber-100 to-orange-100 relative overflow-hidden">
+                  <div className="aspect-[4/3] md:aspect-square bg-gradient-to-br from-amber-100 to-orange-100 relative overflow-hidden rounded-t-[23px] md:rounded-t-[27px]">
                     <Image
                       src={pkg.thumbnail}
                       alt={pkg.name}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
                     />
-                    <Badge className="absolute top-2 left-2 md:top-4 md:left-4 bg-amber-600 text-white text-xs">
+                    {/* Glossy specular lens sheen */}
+                    <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/35 via-white/5 to-transparent pointer-events-none z-10" />
+
+                    {/* Setup Number highlighted properly */}
+                    <span className="absolute top-3 left-3 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-white font-extrabold text-xs md:text-sm px-3.5 py-1.5 rounded-full shadow-[0_4px_14px_rgba(217,119,6,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] border border-amber-300/50 z-10 flex items-center gap-1.5 tracking-wide">
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                       Setup {index + 1}
-                    </Badge>
+                    </span>
+
+                    {/* Setup 1 Royal Red Special Inclusions */}
+                    {pkg.slug === "royal-red" && (
+                      <span className="absolute bottom-3 left-3 right-3 bg-stone-900/90 backdrop-blur-md text-amber-200 border border-amber-400/40 shadow-[0_4px_14px_rgba(0,0,0,0.3)] font-semibold text-[11px] md:text-xs px-3 py-1.5 rounded-full z-10 flex items-center justify-center gap-1.5 text-center">
+                        🍾 Champagne & 🎂 Cake Included
+                      </span>
+                    )}
                   </div>
                   
                   {/* Content */}
-                  <CardContent className="p-3 md:p-4">
-                    <h2 className="text-sm md:text-base lg:text-lg font-bold mb-1 group-hover:text-amber-600 transition-colors line-clamp-2">
-                      {pkg.name} {pkg.emoji}
-                    </h2>
-                    <p className="text-gray-600 text-xs md:text-sm mb-2 line-clamp-2 hidden md:block">
-                      {pkg.shortDescription}
-                    </p>
+                  <CardContent className="p-4 md:p-6 flex flex-col justify-between flex-1">
+                    <div>
+                      <h2 className="font-serif font-bold text-base md:text-xl mb-1.5 group-hover:text-amber-700 transition-colors line-clamp-1 text-stone-900 tracking-tight">
+                        {pkg.name} {pkg.emoji}
+                      </h2>
+                      <p className="text-stone-600 text-xs md:text-sm line-clamp-2 mb-3 leading-relaxed">
+                        {pkg.shortDescription}
+                      </p>
+                    </div>
                     
                     {/* Price */}
-                    <p className="text-lg md:text-xl font-bold text-amber-600">
-                      {formatPrice(pkg.price)}
-                    </p>
+                    <div className="flex items-baseline justify-between pt-3 border-t border-amber-100/70 mt-auto">
+                      <span className="text-lg md:text-2xl font-bold font-display text-amber-700">
+                        {formatPrice(pkg.price)}
+                      </span>
+                      <span className="text-xs md:text-sm font-bold text-amber-700 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                        Book Experience →
+                      </span>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>

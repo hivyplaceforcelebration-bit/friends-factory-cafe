@@ -40,47 +40,37 @@ const experienceFeatures = [
   }
 ];
 
-// FAQ items
+// FAQ items with Direct 40-Word Answer Boxes (Rules #49, #91, #118)
 const faqs = [
   {
-    question: "What is the location of Friends Factory Cafe?",
-    answer: "Nestled at 424, OneWest, Asopalav W, 4th Floor, Sevasi-Canal Rd, Gotri, Vadodara—your premier rooftop spot for candlelight dinners just minutes from key areas."
+    question: "Where is Friends Factory Cafe located in Vadodara?",
+    directAnswer: "Friends Factory Cafe is located at 424, OneWest, 4th Floor, Sevasi-Canal Road, Gotri, Vadodara (beside Adventuraa). It offers a private rooftop and glass house venue accessible within 10–15 minutes from Alkapuri, Akota, and Vasna.",
+    extendedDetails: "Conveniently situated with dedicated parking and elevator access, our Gotri venue provides an intimate, tranquil setting under the stars away from city noise."
   },
   {
-    question: "How do I book a candlelight dinner or event?",
-    answer: `WhatsApp ${siteConfig.phone} or call directly—share your occasion (anniversary, proposal), date, and guest count for instant confirmation and custom quotes.`
+    question: "What are the starting package prices at Friends Factory Cafe?",
+    directAnswer: "Packages start from ₹4,700 up to ₹7,900 across 9 curated romantic setups. Every package includes 100% private couple-only venue access for 3 hours, a multi-course vegetarian meal, welcome drinks, celebration decor, candlelight, and background music.",
+    extendedDetails: "Signature packages like Royal Red (₹7,900) also include sparkling non-alcoholic champagne and celebration cake, while rooftop and glass house setups range between ₹4,700 and ₹6,900."
   },
   {
-    question: "What are the starting prices for packages?",
-    answer: "Candlelight dinner packages begin at ₹6500, including rooftop setup, mocktails, flowers, and decor; premium options with photographer add ₹2000+."
+    question: "Is Friends Factory Cafe 100% private for couples?",
+    directAnswer: "Yes, Friends Factory Cafe is strictly couple-only with 100% private reservations. When you reserve a slot, the entire celebration setup—rooftop or glass house—is exclusively yours with zero outside guests or interruptions.",
+    extendedDetails: "Our dedicated caretakers ensure seamless food service and musical ambiance while giving you complete privacy to celebrate your anniversary, proposal, or birthday."
   },
   {
-    question: "Can we book for marriage proposals or engagements?",
-    answer: "Absolutely—our rooftop proposal setups feature heart arches, fairy lights, and champagne for unforgettable 'yes' moments in Vadodara."
+    question: "What occasions can we celebrate at Friends Factory Cafe?",
+    directAnswer: "Friends Factory Cafe specializes in romantic celebrations including birthday surprises, candlelight dinners, wedding anniversaries, surprise proposals, pre-wedding shoots, and Valentine's dates with custom neon signs, rose petals, and fairy-light backdrops.",
+    extendedDetails: "We also offer tailored themes for milestone anniversaries, surprise date nights, and intimate pre-wedding moments with custom decorations."
   },
   {
-    question: "What occasions do you host?",
-    answer: "Anniversary celebrations, birthday surprises, proposals, last candlelight dinners before marriage, engagements, pre-wedding shoots, and pregnancy announcements."
+    question: "How do I book a celebration slot in Vadodara?",
+    directAnswer: "You can book directly via WhatsApp at +91-7487888730 or call our concierge. Share your occasion, preferred date, and setup choice. We recommend booking 2 to 3 days in advance to reserve prime 6 PM–11 PM slots.",
+    extendedDetails: "Same-day bookings may be accommodated based on availability; reach out on WhatsApp for immediate real-time slot confirmations."
   },
   {
-    question: "What time slots are available for rooftop dinners?",
-    answer: "Evenings 6 PM–11 PM; weekends book fast—advance booking recommended for Vadodara's romantic peak hours."
-  },
-  {
-    question: "Can we customize decorations and menu?",
-    answer: "Fully customizable—balloons, cakes, themed backdrops, vegan mocktails for your anniversary or pregnancy announcement."
-  },
-  {
-    question: "Is Friends Factory Cafe suitable for small groups or couples only?",
-    answer: "Perfect for 2-3 people; intimate couple setups or family celebrations with private rooftop privacy."
-  },
-  {
-    question: "Is your venue private and couple-friendly?",
-    answer: "Yes, absolutely! Our venue is exclusively for couples. You'll have complete privacy with no other guests during your booking slot. It's a safe, comfortable, and romantic space."
-  },
-  {
-    question: "What is your cancellation policy?",
-    answer: "Rescheduling must be informed at least one day prior. Event can be rescheduled within one month, subject to availability. No Refund Policy Applicable."
+    question: "Is celebration cake and non-alcoholic champagne included?",
+    directAnswer: "Our signature Royal Red setup (₹7,900) includes sparkling non-alcoholic champagne and a fresh celebration cake. Fresh celebration cakes are also included across our popular rooftop setups.",
+    extendedDetails: "For any setup, customized photo cakes, flower bouquets, and personalized message cards can be seamlessly arranged upon request."
   }
 ];
 
@@ -331,6 +321,9 @@ export default function FFCHomePage() {
     <div className="min-h-screen bg-white">
       <FFCHeader />
       
+      {/* Main Content Landmark (Rule #35, #36) */}
+      <main id="main-content">
+      
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-amber-600 via-orange-500 to-amber-700 text-white overflow-hidden">
         {/* Background Image Slider */}
@@ -461,46 +454,103 @@ export default function FFCHomePage() {
         </div>
       </section>
 
-      {/* Packages Section */}
-      <section className="py-12 md:py-20 bg-gradient-to-b from-amber-50 to-white">
+      {/* Experience At A Glance - Quick Specs (Rules #98, #115) */}
+      <section className="bg-white border-b border-amber-100 py-6">
         <div className="container mx-auto px-4">
+          <div className="max-w-5xl mx-auto bg-gradient-to-r from-amber-50/80 via-white to-amber-50/80 rounded-2xl border border-amber-200/60 p-4 md:p-6 shadow-sm">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-4 pb-3 border-b border-amber-100">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" /> Experience At A Glance
+              </span>
+              <span className="text-xs text-stone-500 font-medium">Vadodara's Highest-Rated Couple Venue • 4.8★ (525+ Reviews)</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 text-center">
+              <div className="p-2.5 rounded-xl bg-white/80 border border-amber-100/80">
+                <div className="text-lg md:text-xl font-bold text-stone-900">3 Hours</div>
+                <div className="text-xs text-stone-500">100% Private Slot</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/80 border border-amber-100/80">
+                <div className="text-lg md:text-xl font-bold text-amber-700">₹4,700 – ₹7,900</div>
+                <div className="text-xs text-stone-500">9 Romantic Setups</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/80 border border-amber-100/80">
+                <div className="text-lg md:text-xl font-bold text-stone-900">Couple Only</div>
+                <div className="text-xs text-stone-500">Zero Interruptions</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white/80 border border-amber-100/80">
+                <div className="text-lg md:text-xl font-bold text-stone-900">Full Meal</div>
+                <div className="text-xs text-stone-500">Veg Course & Drinks</div>
+              </div>
+              <div className="col-span-2 md:col-span-1 p-2.5 rounded-xl bg-white/80 border border-amber-100/80">
+                <div className="text-lg md:text-xl font-bold text-stone-900">Gotri</div>
+                <div className="text-xs text-stone-500">OneWest Rooftop</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Packages Section */}
+      <section className="py-12 md:py-20 bg-gradient-to-b from-amber-50/70 via-white to-amber-50/40 relative overflow-hidden">
+        <div className="container mx-auto px-4 relative z-10">
           <div className="text-center mb-8 md:mb-16">
-            <Badge className="mb-4 bg-amber-100 text-amber-700 border-amber-200">
-              Our Packages
-            </Badge>
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 font-serif">
+            <span className="inline-flex items-center gap-1.5 mb-3 px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-white/90 backdrop-blur-md text-amber-800 border border-amber-200/70 shadow-sm">
+              ✨ Our Packages
+            </span>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 font-serif text-stone-900">
               Our Romantic Celebration Packages
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
-              8 unique romantic setups designed to make your celebration unforgettable
+            <p className="text-stone-600 max-w-2xl mx-auto text-sm md:text-base font-medium">
+              9 unique romantic setups designed to make your celebration unforgettable
             </p>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {packages.map((pkg, index) => (
-              <Link key={pkg.id} href={`/packages/${pkg.slug}`}>
-                <Card className="h-full hover:shadow-xl transition-all hover:-translate-y-1 border-amber-100 group overflow-hidden">
-                  <div className="aspect-square bg-gradient-to-br from-amber-100 to-orange-100 relative overflow-hidden">
+              <Link key={pkg.id} href={`/packages/${pkg.slug}`} className="group">
+                <Card className="h-full rounded-2xl md:rounded-[28px] overflow-hidden bg-white/85 backdrop-blur-xl border border-white/95 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,1)] hover:shadow-[0_20px_45px_-10px_rgba(217,119,6,0.24),inset_0_1.5px_0_rgba(255,255,255,1)] hover:border-white hover:-translate-y-2 transition-all duration-400 ease-out flex flex-col justify-between">
+                  <div className="aspect-[4/3] md:aspect-square bg-gradient-to-br from-amber-100 to-orange-100 relative overflow-hidden rounded-t-[23px] md:rounded-t-[27px]">
                     <Image
                       src={pkg.thumbnail}
                       alt={pkg.name}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
                     />
-                    <Badge className="absolute top-2 left-2 bg-amber-600 text-white text-xs">
+                    {/* Glossy specular lens sheen */}
+                    <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/35 via-white/5 to-transparent pointer-events-none z-10" />
+
+                    {/* Setup Number highlighted properly */}
+                    <span className="absolute top-3 left-3 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-white font-extrabold text-xs md:text-sm px-3.5 py-1.5 rounded-full shadow-[0_4px_14px_rgba(217,119,6,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] border border-amber-300/50 z-10 flex items-center gap-1.5 tracking-wide">
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                       Setup {index + 1}
-                    </Badge>
+                    </span>
+
+                    {/* Setup 1 Royal Red Special Inclusions */}
+                    {pkg.slug === "royal-red" && (
+                      <span className="absolute bottom-3 left-3 right-3 bg-stone-900/90 backdrop-blur-md text-amber-200 border border-amber-400/40 shadow-[0_4px_14px_rgba(0,0,0,0.3)] font-semibold text-[11px] md:text-xs px-3 py-1.5 rounded-full z-10 flex items-center justify-center gap-1.5 text-center">
+                        🍾 Champagne & 🎂 Cake Included
+                      </span>
+                    )}
                   </div>
-                  <CardContent className="p-2 md:p-4">
-                    <h3 className="font-semibold text-sm md:text-lg mb-1 group-hover:text-amber-600 transition-colors line-clamp-2">
-                      {pkg.name}
-                    </h3>
-                    <p className="text-gray-600 text-xs md:text-sm line-clamp-2 mb-2 hidden md:block">
-                      {pkg.shortDescription}
-                    </p>
-                    <p className="text-base md:text-xl font-bold text-amber-600">
-                      {formatPrice(pkg.price)}
-                    </p>
+
+                  <CardContent className="p-4 md:p-6 flex flex-col justify-between flex-1">
+                    <div>
+                      <h3 className="font-serif font-bold text-base md:text-xl mb-1.5 group-hover:text-amber-700 transition-colors line-clamp-1 text-stone-900 tracking-tight">
+                        {pkg.name}
+                      </h3>
+                      <p className="text-stone-600 text-xs md:text-sm line-clamp-2 mb-3 leading-relaxed">
+                        {pkg.shortDescription}
+                      </p>
+                    </div>
+
+                    <div className="flex items-baseline justify-between pt-3 border-t border-amber-100/70 mt-auto">
+                      <span className="text-lg md:text-2xl font-bold font-display text-amber-700">
+                        {formatPrice(pkg.price)}
+                      </span>
+                      <span className="text-xs md:text-sm font-bold text-amber-700 group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                        Book Experience →
+                      </span>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>
@@ -509,7 +559,7 @@ export default function FFCHomePage() {
           
           <div className="text-center mt-6 md:mt-10">
             <Link href="/packages">
-              <Button size="lg" className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white">
+              <Button size="lg" className="rounded-full px-8 py-5 text-sm md:text-base font-bold bg-gradient-to-b from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-white shadow-[0_8px_24px_-4px_rgba(217,119,6,0.45),inset_0_1px_0_rgba(255,255,255,0.45)] hover:shadow-[0_12px_32px_-4px_rgba(217,119,6,0.55),inset_0_1px_0_rgba(255,255,255,0.6)] hover:-translate-y-0.5 transition-all">
                 View All Packages <ArrowRight className="h-5 w-5 ml-2" />
               </Button>
             </Link>
@@ -1089,30 +1139,52 @@ export default function FFCHomePage() {
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section className="py-20 bg-amber-50">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <div className="text-center mb-16">
-            <Badge className="mb-4 bg-amber-100 text-amber-700 border-amber-200">
-              FAQ
+      {/* FAQ Section with Native Semantic Details & Direct 40-Word Answer Boxes (Rules #49, #91, #118) */}
+      <section className="py-16 md:py-20 bg-gradient-to-b from-amber-50/60 to-white" id="faq">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="text-center mb-12">
+            <Badge className="mb-3 bg-amber-100 text-amber-800 border-amber-200 font-semibold px-3 py-1">
+              ✨ Got Questions?
             </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 font-serif">
+            <h2 className="text-2xl md:text-4xl font-bold mb-3 font-serif text-stone-900">
               Frequently Asked Questions
             </h2>
+            <p className="text-stone-600 max-w-xl mx-auto text-sm md:text-base">
+              Everything you need to know about celebrating your special romantic moment at Friends Factory Cafe.
+            </p>
           </div>
           
-          <Accordion type="single" collapsible className="space-y-4">
+          <div className="space-y-4">
             {faqs.map((faq, index) => (
-              <AccordionItem key={index} value={`faq-${index}`} className="bg-white rounded-lg border border-amber-100 px-6">
-                <AccordionTrigger className="text-left font-medium hover:no-underline">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-gray-600">
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
+              <details
+                key={index}
+                className="group bg-white rounded-2xl border border-amber-200/70 p-5 md:p-6 shadow-sm hover:shadow-md transition-all duration-300 open:border-amber-400 open:bg-amber-50/30"
+              >
+                <summary className="flex items-center justify-between cursor-pointer list-none font-serif font-bold text-base md:text-lg text-stone-900 group-hover:text-amber-800 transition-colors">
+                  <span className="flex items-center gap-2.5 pr-4">
+                    <span className="text-amber-600 font-sans text-sm font-semibold">Q{index + 1}.</span>
+                    {faq.question}
+                  </span>
+                  <span className="w-7 h-7 rounded-full bg-amber-100/80 text-amber-800 flex items-center justify-center text-sm font-bold shrink-0 transition-transform duration-300 group-open:rotate-180">
+                    ↓
+                  </span>
+                </summary>
+                
+                <div className="mt-4 pt-4 border-t border-amber-100/80 space-y-3">
+                  {/* Direct 40-Word Answer Box (Rule #91) */}
+                  <div className="p-3.5 rounded-xl bg-amber-100/60 border border-amber-200/70 text-stone-800 text-sm md:text-base leading-relaxed font-medium">
+                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-900 mb-1">
+                      <span>💡 Quick Answer</span>
+                    </div>
+                    {faq.directAnswer}
+                  </div>
+                  <p className="text-stone-600 text-xs md:text-sm leading-relaxed pl-1">
+                    {faq.extendedDetails}
+                  </p>
+                </div>
+              </details>
             ))}
-          </Accordion>
+          </div>
         </div>
       </section>
 
@@ -1141,6 +1213,37 @@ export default function FFCHomePage() {
           </div>
         </div>
       </section>
+
+      {/* E-E-A-T Experience Curator Byline Card (Rules #125, #140, #190) */}
+      <section className="py-12 bg-white border-t border-amber-100">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="bg-gradient-to-r from-amber-50/70 via-stone-50/50 to-amber-50/70 rounded-2xl border border-amber-200/80 p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 shadow-sm">
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-3xl font-serif font-bold shadow-md shrink-0">
+              FFC
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-200/70 text-amber-900 mb-2">
+                🏆 Certified Experience Curators • Est. 2021 Vadodara
+              </div>
+              <h3 className="font-serif font-bold text-lg md:text-xl text-stone-900 mb-1">
+                Curated by Friends Factory Cafe Hospitality Team
+              </h3>
+              <p className="text-stone-600 text-xs md:text-sm leading-relaxed mb-3">
+                Over 1,306+ memorable romantic celebrations, candlelight dates, and surprise proposals hosted exclusively for couples in Gotri, Vadodara. Every setup is personally inspected for romantic ambience, safety, and freshness before your arrival.
+              </p>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs text-stone-500 font-medium">
+                <span>📍 424, OneWest, Gotri, Vadodara</span>
+                <span>•</span>
+                <span>📞 +91 7487888730</span>
+                <span>•</span>
+                <span className="text-amber-700 font-semibold">100% Private Venue Verified</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      </main>
 
       <FFCFooter />
       <FFCWhatsAppFloat />
