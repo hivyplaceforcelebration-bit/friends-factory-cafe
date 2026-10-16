@@ -49,8 +49,8 @@ const faqs = [
   },
   {
     question: "What are the starting package prices at Friends Factory Cafe?",
-    directAnswer: "Packages start from ₹4,700 up to ₹7,900 across 9 curated romantic setups. Every package includes 100% private couple-only venue access for 3 hours, a multi-course vegetarian meal, welcome drinks, celebration decor, candlelight, and background music.",
-    extendedDetails: "Signature packages like Royal Red (₹7,900) also include sparkling non-alcoholic champagne and celebration cake, while rooftop and glass house setups range between ₹4,700 and ₹6,900."
+    directAnswer: "Packages start from ₹4,700 up to ₹6,900 across 9 curated romantic setups. Every package includes 100% private couple-only venue access for 3 hours, a multi-course vegetarian meal, welcome drinks, celebration decor, candlelight, and background music.",
+    extendedDetails: "Signature packages like Forever Us LoveFrame (₹6,900) and Royal Red (₹6,500) also include celebration cake and sparkling champagne, while setups range between ₹4,700 and ₹6,900."
   },
   {
     question: "Is Friends Factory Cafe 100% private for couples?",
@@ -69,7 +69,7 @@ const faqs = [
   },
   {
     question: "Is celebration cake and non-alcoholic champagne included?",
-    directAnswer: "Our signature Royal Red setup (₹7,900) includes sparkling non-alcoholic champagne and a fresh celebration cake. Fresh celebration cakes are also included across our popular rooftop setups.",
+    directAnswer: "Our signature Royal Red setup (₹6,500) includes sparkling non-alcoholic champagne and a fresh celebration cake. Fresh celebration cakes are also included across our popular rooftop setups.",
     extendedDetails: "For any setup, customized photo cakes, flower bouquets, and personalized message cards can be seamlessly arranged upon request."
   }
 ];
@@ -470,7 +470,7 @@ export default function FFCHomePage() {
                 <div className="text-xs text-stone-500">100% Private Slot</div>
               </div>
               <div className="p-2.5 rounded-xl bg-white/80 border border-amber-100/80">
-                <div className="text-lg md:text-xl font-bold text-amber-700">₹4,700 – ₹7,900</div>
+                <div className="text-lg md:text-xl font-bold text-amber-700">₹4,700 – ₹6,900</div>
                 <div className="text-xs text-stone-500">9 Romantic Setups</div>
               </div>
               <div className="p-2.5 rounded-xl bg-white/80 border border-amber-100/80">

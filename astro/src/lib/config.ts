@@ -38,26 +38,6 @@ export const siteConfig = {
 
 export const packages = [
   {
-    slug: "royal-red",
-    name: "Royal Red",
-    emoji: "❤️👑🕯️",
-    price: "₹7,900",
-    cover: "/packages/7900/Cover.webp",
-    thumbnail: "/packages/thumbnails/royal-red.webp",
-    category: "Signature Luxury",
-    duration: "3 Hours",
-    description: "Our ultra-luxurious royal red velvet canopy experience. Heart-shaped rose petals, glowing candles, circular Happy Birthday neon backdrop, sparkling non-alcoholic champagne & celebration cake included.",
-    inclusions: [
-      "🍾 Bubbly Non-Alcoholic Champagne Included",
-      "🎂 Celebration Cake Included",
-      "3 Hours 100% Private Celebration",
-      "Royal Red Velvet Canopy & Red Carpet",
-      "Complete Vegetarian Meal & Dessert",
-      "Heart-Shaped Rose Petal Setup",
-      "Candlelight & Romantic Background Music",
-    ],
-  },
-  {
     slug: "forever-us-loveframe-rooftop",
     name: "Forever Us LoveFrame Rooftop",
     emoji: "💑✨🌃",
@@ -91,6 +71,26 @@ export const packages = [
       "Celebration Cake & Welcome Drinks",
       "Complete Meal with Romantic Music",
       "Dedicated Caretaker",
+    ],
+  },
+  {
+    slug: "royal-red",
+    name: "Royal Red",
+    emoji: "❤️👑🕯️",
+    price: "₹6,500",
+    cover: "/packages/7900/Cover.webp",
+    thumbnail: "/packages/thumbnails/royal-red.webp",
+    category: "Signature Luxury",
+    duration: "3 Hours",
+    description: "Our ultra-luxurious royal red velvet canopy experience. Heart-shaped rose petals, glowing candles, circular Happy Birthday neon backdrop, sparkling non-alcoholic champagne & celebration cake included.",
+    inclusions: [
+      "🍾 Bubbly Non-Alcoholic Champagne Included",
+      "🎂 Celebration Cake Included",
+      "3 Hours 100% Private Celebration",
+      "Royal Red Velvet Canopy & Red Carpet",
+      "Complete Vegetarian Meal & Dessert",
+      "Heart-Shaped Rose Petal Setup",
+      "Candlelight & Romantic Background Music",
     ],
   },
   {

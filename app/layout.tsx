@@ -443,7 +443,7 @@ const jsonLd = {
           "name": "What are the starting package prices at Friends Factory Cafe?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Packages start from ₹4,700 up to ₹7,900 across 9 curated romantic setups. Every package includes 100% private couple-only venue access for 3 hours, a multi-course vegetarian meal, welcome drinks, celebration decor, candlelight, and background music."
+            "text": "Packages start from ₹4,700 up to ₹6,900 across 9 curated romantic setups. Every package includes 100% private couple-only venue access for 3 hours, a multi-course vegetarian meal, welcome drinks, celebration decor, candlelight, and background music."
           }
         },
         {
@@ -475,7 +475,7 @@ const jsonLd = {
           "name": "Is celebration cake and non-alcoholic champagne included?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Our signature Royal Red setup (₹7,900) includes sparkling non-alcoholic champagne and a fresh celebration cake. Fresh celebration cakes are also included across our popular rooftop setups."
+            "text": "Our signature Royal Red setup (₹6,500) includes sparkling non-alcoholic champagne and a fresh celebration cake. Fresh celebration cakes are also included across our popular rooftop setups."
           }
         }
       ]
