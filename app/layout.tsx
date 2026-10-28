@@ -221,7 +221,7 @@ const jsonLd = {
               "description": "Luxurious royal red velvet canopy, candlelight, heart-shaped rose petals & complete meal",
               "url": "https://friendsfactorycafe.com/packages/royal-red"
             },
-            "price": "7900",
+            "price": "5500",
             "priceCurrency": "INR"
           },
           {
@@ -475,7 +475,7 @@ const jsonLd = {
           "name": "Is celebration cake and non-alcoholic champagne included?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Our signature Royal Red setup (₹6,500) includes sparkling non-alcoholic champagne and a fresh celebration cake. Fresh celebration cakes are also included across our popular rooftop setups."
+            "text": "Our signature Royal Red setup (₹5,500) includes sparkling non-alcoholic champagne and a fresh celebration cake. Fresh celebration cakes are also included across our popular rooftop setups."
           }
         }
       ]

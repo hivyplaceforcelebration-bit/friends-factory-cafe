@@ -77,7 +77,7 @@ export const packages = [
     slug: "royal-red",
     name: "Royal Red",
     emoji: "❤️👑🕯️",
-    price: "₹6,500",
+    price: "₹5,500",
     cover: "/packages/7900/Cover.webp",
     thumbnail: "/packages/thumbnails/royal-red.webp",
     category: "Signature Luxury",
